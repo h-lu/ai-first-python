@@ -1,0 +1,53 @@
+{
+  "id": "functionality",
+  "description": "功能表现评估：运行结果 + 输出质量",
+  "max_score": 12,
+  "borderline_band": [5, 8],
+  "criteria": [
+    {
+      "id": "core_feature_works",
+      "description": "核心功能是否正常工作（缺少LLM时最高2分）",
+      "max_score": 4,
+      "scoring_guide": [
+        [0, "核心功能无法运行，大部分命令报错或超时"],
+        [1, "部分功能可用，但有明显缺陷或bug"],
+        [2, "主要功能可用，输出基本正确（缺少LLM功能时的最高分）"],
+        [3, "功能完整，包含有效LLM集成，输出正确"],
+        [4, "功能出色，LLM是核心流程，有数据流转，输出格式化"]
+      ]
+    },
+    {
+      "id": "llm_integration",
+      "description": "LLM集成的有效性（必选功能！）",
+      "max_score": 3,
+      "scoring_guide": [
+        [0, "无LLM功能，或LLM调用完全失败（不符合基本要求）"],
+        [1, "有LLM调用，但返回通用模板或输出过短(<20字)"],
+        [2, "LLM功能正常，返回与用户数据相关的有意义内容"],
+        [3, "LLM基于用户数据做个性化分析，输出50字以上有实质内容"]
+      ]
+    },
+    {
+      "id": "error_handling",
+      "description": "错误处理的健壮性",
+      "max_score": 3,
+      "scoring_guide": [
+        [0, "无效输入导致程序崩溃（Python Traceback）"],
+        [1, "有1-2个命令仍导致Traceback，或只打印默认错误"],
+        [2, "无Traceback崩溃，有基本错误提示"],
+        [3, "全部无Traceback，有自定义友好提示说明错误原因"]
+      ]
+    },
+    {
+      "id": "user_experience",
+      "description": "用户体验（缺少LLM时最高1分）",
+      "max_score": 2,
+      "scoring_guide": [
+        [0, "难以使用，无帮助信息，输出混乱"],
+        [1, "基本可用，有--help帮助信息（缺少LLM功能时的最高分）"],
+        [2, "体验良好，有使用示例，输出格式化，有状态提示（需有LLM功能）"]
+      ]
+    }
+  ]
+}
+

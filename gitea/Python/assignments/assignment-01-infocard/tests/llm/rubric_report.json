@@ -1,0 +1,30 @@
+{
+  "max_score": 3,
+  "borderline_band": [1, 2],
+  "criteria": [
+    {
+      "id": "prompt_strategy",
+      "description": "Prompt 策略与 AI 协作体验",
+      "scoring_guide": [
+        [0, "未描述 prompt 策略或协作体验"],
+        [1, "有具体描述，展示了与 AI 的真实互动过程"]
+      ]
+    },
+    {
+      "id": "thinking_judgment",
+      "description": "独立思考与判断能力",
+      "scoring_guide": [
+        [0, "未体现个人思考，只是简单接受 AI 输出"],
+        [1, "展示了对代码的理解、验证或主动优化"]
+      ]
+    },
+    {
+      "id": "reflection",
+      "description": "学习收获与反思深度",
+      "scoring_guide": [
+        [0, "空白或泛泛而谈"],
+        [1, "有具体收获，对 AI 辅助编程有自己的思考"]
+      ]
+    }
+  ]
+}

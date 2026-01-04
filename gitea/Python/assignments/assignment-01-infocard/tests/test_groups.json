@@ -1,0 +1,17 @@
+{
+  "groups": {
+    "core": {
+      "pattern": "core",
+      "max_score": 8
+    },
+    "edge": {
+      "pattern": "edge",
+      "max_score": 4
+    },
+    "public": {
+      "pattern": "public",
+      "max_score": 0
+    }
+  },
+  "fallback_group": "public"
+}

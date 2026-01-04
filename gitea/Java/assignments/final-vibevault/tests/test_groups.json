@@ -1,0 +1,26 @@
+{
+  "version": "1.0",
+  "description": "Test group configuration for final-vibevault assignment",
+  "groups": {
+    "core": {
+      "pattern": "com.vibevault.core.*",
+      "weight": 0.75,
+      "max_score": 60,
+      "description": "Core functionality tests (entities, services, controllers, basic security)"
+    },
+    "advanced": {
+      "pattern": "com.vibevault.advanced.*",
+      "weight": 0.125,
+      "max_score": 10,
+      "description": "Advanced features tests (transactions, queries)"
+    },
+    "challenge": {
+      "pattern": "com.vibevault.challenge.*",
+      "weight": 0.125,
+      "max_score": 10,
+      "description": "Challenge features tests (ownership, roles)"
+    }
+  },
+  "fallback_group": "core"
+}
+

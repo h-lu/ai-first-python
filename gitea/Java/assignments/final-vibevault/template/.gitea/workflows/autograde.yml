@@ -1,0 +1,390 @@
+name: autograde-final-vibevault
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'submit'        # 仍然允许标签触发
+      - 'submit-*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # 检查是否应该触发 CI（仅在 commit message 包含 “完成作业” 时执行）
+  check-trigger:
+    runs-on: docker
+    container:
+      image: alpine:latest
+    outputs:
+      should_run: ${{ steps.check.outputs.trigger }}
+    steps:
+      - name: Check commit message for trigger keyword
+        id: check
+        run: |
+          COMMIT_MSG="${{ github.event.head_commit.message || '' }}"
+          echo "Commit message: $COMMIT_MSG"
+          if echo "$COMMIT_MSG" | grep -q "完成作业"; then
+            echo "trigger=true" >> $GITHUB_OUTPUT
+            echo "✅ Commit contains \"完成作业\"，即将执行评分"
+          else
+            echo "trigger=false" >> $GITHUB_OUTPUT
+            echo "⛔ 只有包含“完成作业”的提交才会执行自动评分" >&2
+          fi
+
+  grade:
+    needs: check-trigger
+    if: needs.check-trigger.outputs.should_run == 'true'
+    runs-on: docker
+    container:
+      image: gradle:9.0-jdk21
+      options: --user root
+    timeout-minutes: 30
+    
+    steps:
+      - name: Install dependencies (CN mirror)
+        run: |
+          set -e
+          # 替换 Debian/Ubuntu 源为阿里云镜像
+          for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
+            [ -f "$f" ] || continue
+            sed -i -E 's|https?://deb.debian.org|http://mirrors.aliyun.com|g' "$f" || true
+            sed -i -E 's|https?://security.debian.org|http://mirrors.aliyun.com/debian-security|g' "$f" || true
+            sed -i -E 's|https?://archive.ubuntu.com|http://mirrors.aliyun.com|g' "$f" || true
+            sed -i -E 's|https?://ports.ubuntu.com|http://mirrors.aliyun.com|g' "$f" || true
+          done
+          apt-get -o Acquire::Check-Valid-Until=false update -y
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git ca-certificates python3 python3-pip rsync \
+            libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0 libffi-dev shared-mime-info \
+            fonts-noto-cjk fonts-wqy-microhei
+          pip3 install --break-system-packages python-dotenv requests markdown weasyprint -i https://mirrors.aliyun.com/pypi/simple --trusted-host mirrors.aliyun.com
+          # 刷新字体缓存
+          fc-cache -f -v > /dev/null 2>&1 || true
+          rm -rf /var/lib/apt/lists/*
+      
+      - name: Configure Gradle mirror (Aliyun)
+        run: |
+          mkdir -p ~/.gradle
+          cat > ~/.gradle/init.gradle << 'EOF'
+          allprojects {
+              repositories {
+                  mavenLocal()
+                  maven { url 'https://maven.aliyun.com/repository/public' }
+                  maven { url 'https://maven.aliyun.com/repository/spring' }
+                  maven { url 'https://maven.aliyun.com/repository/spring-plugin' }
+                  maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+                  mavenCentral()
+              }
+          }
+          EOF
+          echo "✅ Gradle configured to use Aliyun mirror"
+      
+      - name: Checkout code
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          git config --global --add safe.directory ${{ github.workspace }}
+          git init
+          # Use token for authentication (required for private repos)
+          REPO_URL="${{ github.server_url }}/${{ github.repository }}.git"
+          AUTH_URL=$(echo "$REPO_URL" | sed "s|://|://${GITHUB_TOKEN}@|")
+          git remote add origin "$AUTH_URL"
+          git fetch --depth=1 origin ${{ github.sha }}
+          git checkout ${{ github.sha }}
+      
+      - name: Fix permissions
+        run: chown -R $(whoami):$(whoami) ${{ github.workspace }} || true
+
+      - name: Fetch hidden tests and grading scripts
+        working-directory: ${{ github.workspace }}
+        env:
+          EXTERNAL_GITEA_HOST: ${{ secrets.EXTERNAL_GITEA_HOST }}
+        run: |
+          set -e
+          
+          TESTS_USERNAME="${RUNNER_TESTS_USERNAME:-}"
+          TESTS_TOKEN="${RUNNER_TESTS_TOKEN:-}"
+          
+          if [ -z "$TESTS_TOKEN" ] || [ -z "$TESTS_USERNAME" ]; then
+            echo "❌ RUNNER_TESTS_USERNAME / RUNNER_TESTS_TOKEN not set!"
+            echo "Cannot fetch grading scripts - aborting."
+            exit 1
+          fi
+          
+          # Resolve Gitea Host
+          if [ -n "$EXTERNAL_GITEA_HOST" ]; then
+            HOST="$EXTERNAL_GITEA_HOST"
+          elif [ -n "$GITEA_ROOT_URL" ]; then
+            HOST=$(echo "$GITEA_ROOT_URL" | sed 's|https\?://||' | sed 's|/$||')
+          else
+            HOST=$(echo "${{ github.server_url }}" | sed 's|https\?://||' | cut -d'/' -f1)
+          fi
+          
+          ORG=$(echo "${{ github.repository }}" | cut -d'/' -f1)
+          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+          
+          # Extract assignment ID
+          if echo "$REPO_NAME" | grep -q -- '-stu_'; then
+            ASSIGNMENT_ID=$(echo "$REPO_NAME" | sed 's/-stu_.*//')
+          elif echo "$REPO_NAME" | grep -q -- '-template'; then
+            ASSIGNMENT_ID=$(echo "$REPO_NAME" | sed 's/-template.*//')
+          else
+            ASSIGNMENT_ID="final-vibevault"
+          fi
+          
+          echo "📥 Fetching tests and grading scripts from ${ORG}/${ASSIGNMENT_ID}-tests..."
+          
+          AUTH_URL="http://${TESTS_USERNAME}:${TESTS_TOKEN}@${HOST}/${ORG}/${ASSIGNMENT_ID}-tests.git"
+          
+          if ! git -c http.sslVerify=false clone --depth=1 "$AUTH_URL" _priv_tests 2>&1; then
+            echo "❌ Failed to clone ${ASSIGNMENT_ID}-tests repository!"
+            exit 1
+          fi
+          
+          # ===== Copy grading scripts (from tests repo, cannot be modified by students) =====
+          if [ -d "_priv_tests/autograde" ]; then
+            # Remove any local .autograde (prevent student tampering)
+            rm -rf .autograde
+            mkdir -p .autograde
+            cp _priv_tests/autograde/*.py .autograde/
+            cp _priv_tests/autograde/*.sh .autograde/ 2>/dev/null || true
+            echo "✅ Grading scripts copied from tests repo"
+          else
+            echo "❌ No autograde directory in tests repo!"
+            exit 1
+          fi
+          
+          # Copy Java tests
+          if [ -d "_priv_tests/java/src/test" ]; then
+            rsync -a _priv_tests/java/src/test/ src/test/
+            echo "✅ Private tests copied"
+          fi
+          
+          # Copy test_groups.json if exists
+          if [ -f "_priv_tests/test_groups.json" ]; then
+            cp _priv_tests/test_groups.json .
+            echo "✅ test_groups.json copied"
+          fi
+          
+          # Copy LLM rubrics
+          if [ -d "_priv_tests/llm" ]; then
+            mkdir -p .llm_rubrics
+            cp _priv_tests/llm/*.json .llm_rubrics/ 2>/dev/null || true
+            echo "✅ LLM rubrics copied"
+          fi
+          
+          # Cleanup
+          rm -rf _priv_tests
+      
+      - name: Run tests
+        working-directory: ${{ github.workspace }}
+        run: |
+          gradle test --no-daemon || true
+          
+          # Collect all JUnit XML reports
+          find build/test-results/test -name "TEST-*.xml" -exec cat {} \; > all_tests.xml 2>/dev/null || true
+          
+          # Also try to get a single combined report
+          if [ -f build/test-results/test/TEST-*.xml ]; then
+            cp build/test-results/test/TEST-*.xml junit.xml 2>/dev/null || true
+          fi
+      
+      - name: Grade programming tests
+        working-directory: ${{ github.workspace }}
+        run: |
+          # Use extended grading script with group support
+          python3 ./.autograde/grade_grouped.py \
+            --junit-dir build/test-results/test \
+            --groups test_groups.json \
+            --out grade.json \
+            --summary summary.md
+      
+      - name: Grade REPORT.md
+        working-directory: ${{ github.workspace }}
+        run: |
+          # LLM env vars are injected by Runner config (LLM_API_KEY, LLM_API_URL, LLM_MODEL)
+          if [ -f REPORT.md ] && [ -f .llm_rubrics/rubric_report.json ]; then
+            python3 ./.autograde/llm_grade.py \
+              --question "请评估这份后端与系统设计报告" \
+              --answer REPORT.md \
+              --rubric .llm_rubrics/rubric_report.json \
+              --out report_grade.json \
+              --summary report_summary.md
+            echo "✅ REPORT.md graded"
+          else
+            echo '{"total": 0, "flags": ["missing_file"]}' > report_grade.json
+            echo "⚠️ REPORT.md or rubric not found"
+          fi
+      
+      - name: Grade FRONTEND.md
+        working-directory: ${{ github.workspace }}
+        run: |
+          # LLM env vars are injected by Runner config (LLM_API_KEY, LLM_API_URL, LLM_MODEL)
+          if [ -f FRONTEND.md ] && [ -f .llm_rubrics/rubric_frontend.json ]; then
+            python3 ./.autograde/llm_grade.py \
+              --question "请评估这份前端界面与交互设计报告" \
+              --answer FRONTEND.md \
+              --rubric .llm_rubrics/rubric_frontend.json \
+              --out frontend_grade.json \
+              --summary frontend_summary.md
+            echo "✅ FRONTEND.md graded"
+          else
+            echo '{"total": 0, "flags": ["missing_file"]}' > frontend_grade.json
+            echo "⚠️ FRONTEND.md or rubric not found"
+          fi
+      
+      - name: Aggregate grades
+        working-directory: ${{ github.workspace }}
+        run: |
+          python3 ./.autograde/aggregate_final_grade.py \
+            --programming grade.json \
+            --report report_grade.json \
+            --frontend frontend_grade.json \
+            --out final_grade.json \
+            --summary final_summary.md
+      
+      - name: Generate PDF report
+        working-directory: ${{ github.workspace }}
+        env:
+          REPO: ${{ github.repository }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          if [ -f final_grade.json ]; then
+            # 读取学生信息文件（如果存在）
+            STUDENT_ID=""
+            STUDENT_NAME=""
+            CLASS_NAME=""
+            
+            if [ -f .student_info.json ]; then
+              STUDENT_ID=$(python3 -c "import json; d=json.load(open('.student_info.json')); print(d.get('student_id',''))" 2>/dev/null || echo "")
+              STUDENT_NAME=$(python3 -c "import json; d=json.load(open('.student_info.json')); print(d.get('name',''))" 2>/dev/null || echo "")
+              CLASS_NAME=$(python3 -c "import json; d=json.load(open('.student_info.json')); print(d.get('class_name',''))" 2>/dev/null || echo "")
+            fi
+            
+            # 如果没有学生信息文件，从仓库名提取学号
+            if [ -z "$STUDENT_ID" ]; then
+              STUDENT_ID=$(echo "$REPO" | sed -n 's/.*-stu[_-]\?\(st\)\?\([0-9]*\)$/\2/p')
+            fi
+            
+            python3 ./.autograde/generate_pdf_report.py \
+              --report REPORT.md \
+              --frontend FRONTEND.md \
+              --grade final_grade.json \
+              --images images \
+              --out grade_report.pdf \
+              --student-id "$STUDENT_ID" \
+              --student-name "$STUDENT_NAME" \
+              --class-name "$CLASS_NAME" \
+              --commit-sha "$COMMIT_SHA"
+          fi
+      
+      - name: Upload report to student repo
+        if: env.RUNNER_METADATA_TOKEN != ''
+        working-directory: ${{ github.workspace }}
+        env:
+          TOKEN: ${{ env.RUNNER_METADATA_TOKEN }}
+          REPO: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          # 上传 PDF 或 Markdown 报告到学生仓库
+          REPORT_FILE=""
+          if [ -f grade_report.pdf ]; then
+            REPORT_FILE="grade_report.pdf"
+          elif [ -f grade_report.md ]; then
+            REPORT_FILE="grade_report.md"
+          fi
+          
+          if [ -n "$REPORT_FILE" ]; then
+            # 使用内部地址
+            API_URL="http://gitea:3000/api/v1"
+            SHORT_SHA=$(echo "$COMMIT_SHA" | cut -c1-7)
+            DEST_PATH="reports/grade_report_${SHORT_SHA}.${REPORT_FILE##*.}"
+            
+            # Base64 编码并保存到临时文件（避免命令行参数过长）
+            CONTENT=$(base64 -w 0 "$REPORT_FILE")
+            
+            # 创建请求 JSON 文件
+            cat > /tmp/upload_request.json << EOF
+          {"message": "Add grade report for $SHORT_SHA", "content": "$CONTENT"}
+          EOF
+            
+            # 先尝试 POST 创建新文件
+            RESULT=$(curl -s -X POST -H "Authorization: token $TOKEN" \
+              -H "Content-Type: application/json" \
+              "$API_URL/repos/$REPO/contents/$DEST_PATH" \
+              -d @/tmp/upload_request.json)
+            
+            if echo "$RESULT" | grep -q '"content"'; then
+              echo "✅ Report uploaded to $DEST_PATH"
+            else
+              # POST 失败，可能文件已存在，尝试获取 SHA 并 PUT 更新
+              echo "POST failed, trying PUT with SHA..."
+              SHA=$(curl -s -H "Authorization: token $TOKEN" \
+                "$API_URL/repos/$REPO/contents/$DEST_PATH" \
+                | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('sha','') if isinstance(d,dict) and 'sha' in d else '')" 2>/dev/null || echo "")
+              
+              if [ -n "$SHA" ]; then
+                # 创建更新请求 JSON 文件
+                cat > /tmp/upload_request.json << EOF
+          {"message": "Update grade report for $SHORT_SHA", "content": "$CONTENT", "sha": "$SHA"}
+          EOF
+                
+                RESULT=$(curl -s -X PUT -H "Authorization: token $TOKEN" \
+                  -H "Content-Type: application/json" \
+                  "$API_URL/repos/$REPO/contents/$DEST_PATH" \
+                  -d @/tmp/upload_request.json)
+                
+                if echo "$RESULT" | grep -q '"content"'; then
+                  echo "✅ Report updated at $DEST_PATH"
+                else
+                  echo "⚠️ Failed to update report: $RESULT"
+                fi
+              else
+                echo "⚠️ Could not get file SHA, upload failed"
+              fi
+            fi
+            
+            # 清理临时文件
+            rm -f /tmp/upload_request.json
+          fi
+      
+      - name: Create metadata
+        working-directory: ${{ github.workspace }}
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          if [ -f final_grade.json ]; then
+            export GRADE_TYPE=final
+            python3 ./.autograde/create_minimal_metadata.py > metadata.json || echo "{}" > metadata.json
+          fi
+      
+      - name: Upload metadata
+        if: env.RUNNER_METADATA_TOKEN != ''
+        working-directory: ${{ github.workspace }}
+        env:
+          # 使用当前组织的 course-metadata 仓库，而不是 Runner 配置中的硬编码值
+          METADATA_REPO: ${{ github.repository_owner }}/course-metadata
+          METADATA_TOKEN: ${{ env.RUNNER_METADATA_TOKEN }}
+          METADATA_BRANCH: ${{ env.RUNNER_METADATA_BRANCH }}
+          STUDENT_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          COMMIT_SHA: ${{ github.sha }}
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          if [ -f metadata.json ]; then
+            python3 ./.autograde/upload_metadata.py \
+              --metadata-file metadata.json \
+              --metadata-repo "${METADATA_REPO}" \
+              --branch "${METADATA_BRANCH:-main}" \
+              --student-repo "${STUDENT_REPO}" \
+              --run-id "${RUN_ID}" \
+              --commit-sha "${COMMIT_SHA}" \
+              --workflow grade \
+              --server-url "${SERVER_URL}" \
+              --external-host "${EXTERNAL_GITEA_HOST}"
+          fi
+

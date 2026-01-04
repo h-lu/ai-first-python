@@ -1,0 +1,40 @@
+{
+  "max_score": 5,
+  "borderline_band": [2, 3],
+  "criteria": [
+    {
+      "id": "safety_awareness",
+      "description": "安全意识",
+      "scoring_guide": [
+        [0, "未展示谨慎测试的意识"],
+        [1, "有基本的安全意识，如使用测试目录"],
+        [2, "展示了完整的安全意识，理解操作风险，使用 dry_run 等"]
+      ]
+    },
+    {
+      "id": "decision_thinking",
+      "description": "冲突处理决策思考",
+      "scoring_guide": [
+        [0, "未回答或随意选择"],
+        [1, "有思考过程，能说明选择理由和权衡"]
+      ]
+    },
+    {
+      "id": "code_review",
+      "description": "AI 代码审查能力",
+      "scoring_guide": [
+        [0, "未发现 AI 代码问题"],
+        [1, "发现并修复了 AI 代码的安全问题"]
+      ]
+    },
+    {
+      "id": "responsibility",
+      "description": "责任思考",
+      "scoring_guide": [
+        [0, "空白或泛泛而谈"],
+        [1, "对'为结果负责'有自己的理解"]
+      ]
+    }
+  ]
+}
+

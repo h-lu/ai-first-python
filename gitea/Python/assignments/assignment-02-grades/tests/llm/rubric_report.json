@@ -1,0 +1,39 @@
+{
+  "max_score": 5,
+  "borderline_band": [2, 3],
+  "criteria": [
+    {
+      "id": "design_decision",
+      "description": "设计决策的思考深度",
+      "scoring_guide": [
+        [0, "未回答或无思考"],
+        [1, "给出了选择但理由简单"],
+        [2, "详细分析了方案优缺点，有深入思考"]
+      ]
+    },
+    {
+      "id": "complex_requirements",
+      "description": "复杂需求的表达与沟通",
+      "scoring_guide": [
+        [0, "未描述如何表达复杂需求"],
+        [1, "展示了向 AI 表达复杂需求的策略或技巧"]
+      ]
+    },
+    {
+      "id": "responsibility",
+      "description": "代码质量意识与责任感",
+      "scoring_guide": [
+        [0, "未体现对代码质量的关注"],
+        [1, "展示了验证代码、确保质量的意识"]
+      ]
+    },
+    {
+      "id": "growth",
+      "description": "反思与成长",
+      "scoring_guide": [
+        [0, "空白或泛泛而谈"],
+        [1, "有具体反思，对 AI 与程序员角色有思考"]
+      ]
+    }
+  ]
+}

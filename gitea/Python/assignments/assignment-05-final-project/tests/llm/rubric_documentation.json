@@ -1,0 +1,65 @@
+{
+  "id": "documentation",
+  "description": "文档质量评估：REPORT.md + CHANGELOG.md",
+  "max_score": 8,
+  "borderline_band": [3, 5],
+  "criteria": [
+    {
+      "id": "report_positioning",
+      "description": "项目定位清晰度",
+      "max_score": 1,
+      "scoring_guide": [
+        [0, "未说明项目价值，或只说'完成作业'、'课程要求'"],
+        [1, "清楚说明解决什么问题、为什么值得做、目标用户是谁"]
+      ]
+    },
+    {
+      "id": "report_decisions",
+      "description": "技术决策的思考深度",
+      "max_score": 2,
+      "scoring_guide": [
+        [0, "无技术决策说明，或只说'AI建议的'、'网上查的'"],
+        [1, "有决策说明，但缺乏替代方案对比或理由不充分"],
+        [2, "有替代方案对比，选择理由充分，体现了独立思考"]
+      ]
+    },
+    {
+      "id": "report_iteration",
+      "description": "迭代与成长记录",
+      "max_score": 1,
+      "scoring_guide": [
+        [0, "无迭代记录，或只是流水账式描述"],
+        [1, "有真实的挑战描述和解决过程，能说出学到了什么"]
+      ]
+    },
+    {
+      "id": "report_reflection",
+      "description": "自我反思的诚实度",
+      "max_score": 1,
+      "scoring_guide": [
+        [0, "无反思，或只有空洞的套话如'收获很大'"],
+        [1, "诚实的自我评价，知道不足在哪，有具体的遗憾点"]
+      ]
+    },
+    {
+      "id": "changelog_versions",
+      "description": "版本记录数量和实质性",
+      "max_score": 2,
+      "scoring_guide": [
+        [0, "无版本记录，或只有1个版本且内容简略"],
+        [1, "有2个版本，能看出一定的迭代过程"],
+        [2, "有3个及以上版本，每版有实质性变化"]
+      ]
+    },
+    {
+      "id": "changelog_detail",
+      "description": "版本记录的详细程度",
+      "max_score": 1,
+      "scoring_guide": [
+        [0, "记录过于简略，只有'修复bug'之类的泛泛描述"],
+        [1, "记录详细，说明了改动原因、具体修改内容"]
+      ]
+    }
+  ]
+}
+

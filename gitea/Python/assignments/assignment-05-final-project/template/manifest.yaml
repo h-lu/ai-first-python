@@ -1,0 +1,35 @@
+# manifest.yaml - 项目运行声明（必填）
+# 评测系统将根据这个文件自动运行你的项目
+
+project:
+  name: "你的项目名称"
+  description: "一句话描述项目功能"
+
+# 运行命令（评测系统会依次执行这些命令）
+commands:
+  # 主功能演示（必填，至少 3 个命令）
+  demo:
+    - command: "python src/main.py --help"
+      description: "显示帮助信息"
+    # TODO: 添加你的功能演示命令
+    # - command: "python src/main.py 参数"
+    #   description: "演示功能描述"
+  
+  # 错误处理演示（必填，至少 2 个命令）
+  error_handling:
+    - command: "python src/main.py invalid_command"
+      description: "测试无效命令处理"
+    # TODO: 添加更多错误处理测试
+    # - command: "python src/main.py --invalid-param"
+    #   description: "测试无效参数处理"
+
+  # Web 界面（可选，如有 Streamlit）
+  # web:
+  #   command: "streamlit run app.py --server.headless true"
+  #   port: 8501
+
+# 需要的环境变量（评测时会注入）
+env_vars:
+  - DEEPSEEK_API_KEY
+  # 如需其他 API Key，在此列出
+

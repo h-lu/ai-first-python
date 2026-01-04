@@ -1,0 +1,238 @@
+name: autograde-assignment-01-infocard
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'submit'
+      - 'submit-*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  check-trigger:
+    runs-on: docker
+    container:
+      image: alpine:latest
+    outputs:
+      should_run: ${{ steps.check.outputs.trigger }}
+    steps:
+      - name: Check commit message for trigger keyword
+        id: check
+        run: |
+          COMMIT_MSG="${{ github.event.head_commit.message || '' }}"
+          echo "Commit message: $COMMIT_MSG"
+          if echo "$COMMIT_MSG" | grep -q "完成作业"; then
+            echo "trigger=true" >> $GITHUB_OUTPUT
+            echo "✅ Commit contains \"完成作业\"，即将执行评分"
+          else
+            echo "trigger=false" >> $GITHUB_OUTPUT
+            echo "⛔ 只有包含“完成作业”的提交才会执行自动评分" >&2
+          fi
+
+  grade:
+    needs: check-trigger
+    if: needs.check-trigger.outputs.should_run == 'true'
+    runs-on: docker
+    container:
+      image: python:3.11
+      options: --user root
+    timeout-minutes: 20
+
+    steps:
+      - name: Configure APT mirror (Aliyun)
+        run: |
+          set -e
+          for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
+            [ -f "$f" ] || continue
+            sed -i -E 's|https?://deb.debian.org|http://mirrors.aliyun.com|g' "$f" || true
+            sed -i -E 's|https?://security.debian.org|http://mirrors.aliyun.com/debian-security|g' "$f" || true
+            sed -i -E 's|https?://archive.ubuntu.com|http://mirrors.aliyun.com|g' "$f" || true
+            sed -i -E 's|https?://ports.ubuntu.com|http://mirrors.aliyun.com|g' "$f" || true
+          done
+          apt-get -o Acquire::Check-Valid-Until=false update -y
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends git ca-certificates python3-pip rsync fonts-noto-cjk fonts-wqy-microhei
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Checkout code
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          git config --global --add safe.directory ${{ github.workspace }}
+          git init
+          REPO_URL="${{ github.server_url }}/${{ github.repository }}.git"
+          AUTH_URL=$(echo "$REPO_URL" | sed "s|://|://${GITHUB_TOKEN}@|")
+          git remote add origin "$AUTH_URL"
+          git fetch --depth=1 origin ${{ github.sha }}
+          git checkout ${{ github.sha }}
+
+      - name: Fix permissions
+        run: chown -R $(whoami):$(whoami) ${{ github.workspace }} || true
+
+      - name: Fetch hidden tests and grading scripts
+        working-directory: ${{ github.workspace }}
+        env:
+          EXTERNAL_GITEA_HOST: ${{ secrets.EXTERNAL_GITEA_HOST }}
+        run: |
+          set -e
+          TESTS_USERNAME="${RUNNER_TESTS_USERNAME:-}"
+          TESTS_TOKEN="${RUNNER_TESTS_TOKEN:-}"
+          if [ -z "$TESTS_TOKEN" ] || [ -z "$TESTS_USERNAME" ]; then
+            echo "❌ RUNNER_TESTS_USERNAME / RUNNER_TESTS_TOKEN not set!"
+            exit 1
+          fi
+
+          # Resolve host
+          if [ -n "$EXTERNAL_GITEA_HOST" ]; then
+            HOST="$EXTERNAL_GITEA_HOST"
+          elif [ -n "$GITEA_ROOT_URL" ]; then
+            HOST=$(echo "$GITEA_ROOT_URL" | sed 's|https\?://||' | sed 's|/$||')
+          else
+            HOST=$(echo "${{ github.server_url }}" | sed 's|https\?://||' | cut -d'/' -f1)
+          fi
+
+          ORG=$(echo "${{ github.repository }}" | cut -d'/' -f1)
+          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+
+          if echo "$REPO_NAME" | grep -q -- '-stu_'; then
+            ASSIGNMENT_ID=$(echo "$REPO_NAME" | sed 's/-stu_.*//')
+          elif echo "$REPO_NAME" | grep -q -- '-template'; then
+            ASSIGNMENT_ID=$(echo "$REPO_NAME" | sed 's/-template.*//')
+          else
+            ASSIGNMENT_ID="assignment-01-infocard"
+          fi
+
+          echo "📥 Fetching tests from ${ORG}/${ASSIGNMENT_ID}-tests..."
+          AUTH_URL="http://${TESTS_USERNAME}:${TESTS_TOKEN}@${HOST}/${ORG}/${ASSIGNMENT_ID}-tests.git"
+          git -c http.sslVerify=false clone --depth=1 "$AUTH_URL" _priv_tests
+
+          rm -rf .autograde
+          mkdir -p .autograde
+          cp _priv_tests/autograde/*.py .autograde/
+          cp _priv_tests/autograde/*.sh .autograde/ 2>/dev/null || true
+          # Copy metadata scripts if available
+          if [ -f "_priv_tests/autograde/create_minimal_metadata.py" ]; then
+            cp _priv_tests/autograde/create_minimal_metadata.py .autograde/ 2>/dev/null || true
+          fi
+          if [ -f "_priv_tests/autograde/upload_metadata.py" ]; then
+            cp _priv_tests/autograde/upload_metadata.py .autograde/ 2>/dev/null || true
+          fi
+
+          # Copy Python tests
+          if [ -d "_priv_tests/python" ]; then
+            mkdir -p tests
+            rsync -a _priv_tests/python/ tests/
+            echo "✅ Private tests copied"
+          fi
+
+          # Copy test groups
+          if [ -f "_priv_tests/test_groups.json" ]; then
+            cp _priv_tests/test_groups.json .
+          fi
+
+          # Copy LLM rubrics
+          if [ -d "_priv_tests/llm" ]; then
+            mkdir -p .llm_rubrics
+            cp _priv_tests/llm/*.json .llm_rubrics/ 2>/dev/null || true
+          fi
+
+          rm -rf _priv_tests
+
+      - name: Install Python dependencies
+        run: |
+          pip config set global.index-url https://mirrors.aliyun.com/pypi/simple
+          pip install --no-cache-dir -r requirements.txt
+          # 安装评分脚本依赖
+          pip install --no-cache-dir pytest requests python-dotenv
+
+      - name: Run tests
+        working-directory: ${{ github.workspace }}
+        run: |
+          mkdir -p test-results
+          export PYTHONPATH="$(pwd):${PYTHONPATH}"
+          echo "📋 Tests to be executed:"
+          find tests -name "test_*.py" -type f 2>/dev/null || echo "No test files found"
+          pytest tests/ -v --junitxml=test-results/junit.xml || true
+          echo "📊 JUnit report generated"
+
+      - name: Grade programming tests
+        run: |
+          python ./.autograde/grade_grouped.py \
+            --junit-dir test-results \
+            --groups test_groups.json \
+            --out grade.json \
+            --summary summary.md
+
+      - name: Grade REPORT.md
+        run: |
+          if [ -f REPORT.md ] && [ -f .llm_rubrics/rubric_report.json ]; then
+            python ./.autograde/llm_grade.py \
+              --question "请评估这份反思报告" \
+              --answer REPORT.md \
+              --rubric .llm_rubrics/rubric_report.json \
+              --out report_grade.json \
+              --summary report_summary.md
+            echo "✅ REPORT.md graded"
+          else
+            echo '{"total": 0, "flags": ["missing_file"]}' > report_grade.json
+            echo "⚠️ REPORT.md or rubric not found"
+          fi
+
+      - name: Aggregate grades
+        run: |
+          python ./.autograde/aggregate_grade.py \
+            --programming grade.json \
+            --report report_grade.json \
+            --out final_grade.json \
+            --summary final_summary.md
+
+      - name: Create metadata
+        working-directory: ${{ github.workspace }}
+        env:
+          REPO: ${{ github.repository }}
+          LANGUAGE: python
+        run: |
+          if [ -f final_grade.json ]; then
+            # Use final grade type for aggregated grades
+            export GRADE_TYPE=final
+            export GRADE_FILE=final_grade.json
+            if [ -f .autograde/create_minimal_metadata.py ]; then
+              python ./.autograde/create_minimal_metadata.py > metadata.json || echo "{}" > metadata.json
+            else
+              echo "⚠️ create_minimal_metadata.py not found, skipping metadata creation"
+              echo "{}" > metadata.json
+            fi
+          fi
+
+      - name: Upload metadata
+        if: env.RUNNER_METADATA_TOKEN != ''
+        working-directory: ${{ github.workspace }}
+        env:
+          # 使用当前组织的 course-metadata 仓库
+          METADATA_REPO: ${{ github.repository_owner }}/course-metadata
+          METADATA_TOKEN: ${{ env.RUNNER_METADATA_TOKEN }}
+          METADATA_BRANCH: ${{ env.RUNNER_METADATA_BRANCH }}
+          STUDENT_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          COMMIT_SHA: ${{ github.sha }}
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          if [ -f metadata.json ] && [ -f .autograde/upload_metadata.py ]; then
+            python ./.autograde/upload_metadata.py \
+              --metadata-file metadata.json \
+              --metadata-repo "${METADATA_REPO}" \
+              --branch "${METADATA_BRANCH:-main}" \
+              --student-repo "${STUDENT_REPO}" \
+              --run-id "${RUN_ID}" \
+              --commit-sha "${COMMIT_SHA}" \
+              --workflow grade \
+              --server-url "${SERVER_URL}" \
+              --external-host "${EXTERNAL_GITEA_HOST}"
+          else
+            echo "⚠️ metadata.json or upload_metadata.py not found, skipping upload"
+          fi
+

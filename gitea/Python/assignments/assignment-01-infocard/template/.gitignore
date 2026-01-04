@@ -1,0 +1,15 @@
+__pycache__/
+.pytest_cache/
+.autograde/
+.llm_rubrics/
+test-results/
+*.pyc
+*.pyo
+.DS_Store
+grade*.json
+final_grade.json
+*.xml
+*.pdf
+metadata.json
+report_*.json
+

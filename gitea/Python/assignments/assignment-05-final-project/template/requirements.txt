@@ -1,0 +1,10 @@
+# 核心依赖
+openai>=1.0.0
+python-dotenv>=1.0.0
+
+# 根据你的项目需要添加其他依赖
+# requests>=2.31.0
+# pandas>=2.0.0
+# matplotlib>=3.7.0
+# streamlit>=1.28.0
+

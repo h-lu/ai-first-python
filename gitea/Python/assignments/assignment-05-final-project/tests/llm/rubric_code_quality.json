@@ -1,0 +1,38 @@
+{
+  "id": "code_quality",
+  "description": "代码质量评估：结构、可读性、安全性",
+  "max_score": 5,
+  "borderline_band": [2, 3],
+  "criteria": [
+    {
+      "id": "code_structure",
+      "description": "代码结构合理性（缺少LLM代码时最高1分）",
+      "max_score": 2,
+      "scoring_guide": [
+        [0, "代码混乱或模板未修改，无实际业务逻辑"],
+        [1, "有业务代码但都在一个文件，或缺少LLM调用代码"],
+        [2, "结构清晰，有多模块划分，包含LLM调用相关代码"]
+      ]
+    },
+    {
+      "id": "code_readability",
+      "description": "代码可读性",
+      "max_score": 2,
+      "scoring_guide": [
+        [0, "无注释，变量名无意义（如a, b, x），难以理解"],
+        [1, "有一定可读性，部分有注释，变量名基本可理解"],
+        [2, "清晰易读，关键位置有注释，命名规范有意义"]
+      ]
+    },
+    {
+      "id": "security",
+      "description": "安全性（API Key处理）",
+      "max_score": 1,
+      "scoring_guide": [
+        [0, "API Key硬编码在代码中，或无.env.example文件"],
+        [1, "使用环境变量管理API Key，有.env.example示例文件"]
+      ]
+    }
+  ]
+}
+

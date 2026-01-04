@@ -1,0 +1,41 @@
+{
+  "max_score": 6,
+  "borderline_band": [2, 4],
+  "criteria": [
+    {
+      "id": "data_discovery",
+      "description": "数据发现的深度",
+      "scoring_guide": [
+        [0, "未描述数据发现或只是描述图表"],
+        [1, "有发现但缺乏数据支撑或分析"],
+        [2, "有 1 个有深度的发现，有数据支撑"],
+        [3, "有 2 个以上有深度的发现，有数据支撑和思考"]
+      ]
+    },
+    {
+      "id": "chart_choice",
+      "description": "图表选择的思考",
+      "scoring_guide": [
+        [0, "未说明图表选择理由"],
+        [1, "有选择理由，不是'AI 生成了这个'"]
+      ]
+    },
+    {
+      "id": "ai_problem",
+      "description": "AI 问题发现",
+      "scoring_guide": [
+        [0, "未发现 AI 代码问题"],
+        [1, "发现并修复了实际问题"]
+      ]
+    },
+    {
+      "id": "storytelling",
+      "description": "信息传达意识",
+      "scoring_guide": [
+        [0, "未体现信息传达意识"],
+        [1, "理解可视化是为了沟通，有组织逻辑"]
+      ]
+    }
+  ]
+}
+

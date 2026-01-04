@@ -1,0 +1,304 @@
+name: autograde-assignment-05-final-project
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'submit'
+      - 'submit-*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  check-trigger:
+    runs-on: docker
+    container:
+      image: alpine:latest
+    outputs:
+      should_run: ${{ steps.check.outputs.trigger }}
+    steps:
+      - name: Check commit message for trigger keyword
+        id: check
+        run: |
+          COMMIT_MSG="${{ github.event.head_commit.message || '' }}"
+          echo "Commit message: $COMMIT_MSG"
+          if echo "$COMMIT_MSG" | grep -q "完成作业"; then
+            echo "trigger=true" >> $GITHUB_OUTPUT
+            echo "✅ Commit contains \"完成作业\"，即将执行评分"
+          else
+            echo "trigger=false" >> $GITHUB_OUTPUT
+            echo "⛔ 只有包含"完成作业"的提交才会执行自动评分" >&2
+          fi
+
+  grade:
+    needs: check-trigger
+    if: needs.check-trigger.outputs.should_run == 'true'
+    runs-on: docker
+    container:
+      image: python:3.11
+      options: --user root
+    timeout-minutes: 30
+
+    steps:
+      - name: Configure APT mirror (Aliyun)
+        run: |
+          set -e
+          for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
+            [ -f "$f" ] || continue
+            sed -i -E 's|https?://deb.debian.org|http://mirrors.aliyun.com|g' "$f" || true
+            sed -i -E 's|https?://security.debian.org|http://mirrors.aliyun.com/debian-security|g' "$f" || true
+            sed -i -E 's|https?://archive.ubuntu.com|http://mirrors.aliyun.com|g' "$f" || true
+            sed -i -E 's|https?://ports.ubuntu.com|http://mirrors.aliyun.com|g' "$f" || true
+          done
+          apt-get -o Acquire::Check-Valid-Until=false update -y
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            git ca-certificates python3-pip rsync \
+            libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libffi-dev shared-mime-info \
+            fontconfig fonts-noto-cjk fonts-wqy-microhei
+          fc-cache -f -v >/dev/null 2>&1 || true
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Checkout code
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          git config --global --add safe.directory ${{ github.workspace }}
+          git init
+          REPO_URL="${{ github.server_url }}/${{ github.repository }}.git"
+          AUTH_URL=$(echo "$REPO_URL" | sed "s|://|://${GITHUB_TOKEN}@|")
+          git remote add origin "$AUTH_URL"
+          git fetch --depth=1 origin ${{ github.sha }}
+          git checkout ${{ github.sha }}
+
+      - name: Fix permissions
+        run: chown -R $(whoami):$(whoami) ${{ github.workspace }} || true
+
+      - name: Fetch grading scripts
+        working-directory: ${{ github.workspace }}
+        env:
+          EXTERNAL_GITEA_HOST: ${{ secrets.EXTERNAL_GITEA_HOST }}
+        run: |
+          set -e
+          TESTS_USERNAME="${RUNNER_TESTS_USERNAME:-}"
+          TESTS_TOKEN="${RUNNER_TESTS_TOKEN:-}"
+          if [ -z "$TESTS_TOKEN" ] || [ -z "$TESTS_USERNAME" ]; then
+            echo "❌ RUNNER_TESTS_USERNAME / RUNNER_TESTS_TOKEN not set!"
+            exit 1
+          fi
+
+          # Resolve host
+          if [ -n "$EXTERNAL_GITEA_HOST" ]; then
+            HOST="$EXTERNAL_GITEA_HOST"
+          elif [ -n "$GITEA_ROOT_URL" ]; then
+            HOST=$(echo "$GITEA_ROOT_URL" | sed 's|https\?://||' | sed 's|/$||')
+          else
+            HOST=$(echo "${{ github.server_url }}" | sed 's|https\?://||' | cut -d'/' -f1)
+          fi
+
+          ORG=$(echo "${{ github.repository }}" | cut -d'/' -f1)
+          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+
+          if echo "$REPO_NAME" | grep -q -- '-stu_'; then
+            ASSIGNMENT_ID=$(echo "$REPO_NAME" | sed 's/-stu_.*//')
+          elif echo "$REPO_NAME" | grep -q -- '-template'; then
+            ASSIGNMENT_ID=$(echo "$REPO_NAME" | sed 's/-template.*//')
+          else
+            ASSIGNMENT_ID="assignment-05-final-project"
+          fi
+
+          echo "📥 Fetching grading scripts from ${ORG}/${ASSIGNMENT_ID}-tests..."
+          AUTH_URL="http://${TESTS_USERNAME}:${TESTS_TOKEN}@${HOST}/${ORG}/${ASSIGNMENT_ID}-tests.git"
+          git -c http.sslVerify=false clone --depth=1 "$AUTH_URL" _priv_tests
+
+          rm -rf .autograde
+          mkdir -p .autograde
+          cp _priv_tests/autograde/*.py .autograde/
+          cp _priv_tests/autograde/*.sh .autograde/ 2>/dev/null || true
+
+          # Copy LLM rubrics
+          if [ -d "_priv_tests/llm" ]; then
+            mkdir -p .llm_rubrics
+            cp _priv_tests/llm/*.json .llm_rubrics/ 2>/dev/null || true
+          fi
+
+          rm -rf _priv_tests
+
+      - name: Install Python dependencies
+        run: |
+          pip config set global.index-url https://mirrors.aliyun.com/pypi/simple
+          if [ -f requirements.txt ]; then
+            pip install --no-cache-dir -r requirements.txt
+          fi
+          # 安装评分脚本依赖与 PDF 生成依赖
+          pip install --no-cache-dir requests python-dotenv pyyaml markdown weasyprint
+
+      - name: Validate manifest.yaml
+        run: |
+          if [ ! -f manifest.yaml ]; then
+            echo "❌ manifest.yaml not found!"
+            echo '{"error": "missing_manifest"}' > run_results.json
+          else
+            echo "✅ manifest.yaml found"
+          fi
+
+      - name: Run project commands
+        working-directory: ${{ github.workspace }}
+        run: |
+          if [ -f manifest.yaml ]; then
+            python ./.autograde/run_project.py . --out run_results.json --timeout 60
+          fi
+
+      - name: Grade documentation (LLM)
+        run: |
+          python ./.autograde/llm_evaluate.py \
+            --run-results run_results.json \
+            --rubric .llm_rubrics/rubric_documentation.json \
+            --dimension documentation \
+            --out doc_grade.json
+
+      - name: Grade functionality (LLM)
+        run: |
+          python ./.autograde/llm_evaluate.py \
+            --run-results run_results.json \
+            --rubric .llm_rubrics/rubric_functionality.json \
+            --dimension functionality \
+            --out func_grade.json
+
+      - name: Grade code quality (LLM)
+        run: |
+          python ./.autograde/llm_evaluate.py \
+            --run-results run_results.json \
+            --rubric .llm_rubrics/rubric_code_quality.json \
+            --dimension code_quality \
+            --out code_grade.json
+
+      - name: Aggregate grades
+        run: |
+          python ./.autograde/aggregate_grade.py \
+            --documentation doc_grade.json \
+            --functionality func_grade.json \
+            --code-quality code_grade.json \
+            --out final_grade.json \
+            --summary final_summary.md
+
+      - name: Generate PDF report
+        working-directory: ${{ github.workspace }}
+        env:
+          REPO: ${{ github.repository }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          if [ -f final_grade.json ]; then
+            python ./.autograde/generate_pdf_report.py \
+              --run-results run_results.json \
+              --grade final_grade.json \
+              --readme README.md \
+              --report REPORT.md \
+              --changelog CHANGELOG.md \
+              --out grade_report.pdf \
+              --commit-sha "$COMMIT_SHA"
+          fi
+
+      - name: Upload report to student repo
+        if: env.RUNNER_METADATA_TOKEN != ''
+        working-directory: ${{ github.workspace }}
+        env:
+          TOKEN: ${{ env.RUNNER_METADATA_TOKEN }}
+          REPO: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          REPORT_FILE=""
+          if [ -f grade_report.pdf ]; then
+            REPORT_FILE="grade_report.pdf"
+          elif [ -f grade_report.html ]; then
+            REPORT_FILE="grade_report.html"
+          elif [ -f grade_report.md ]; then
+            REPORT_FILE="grade_report.md"
+          fi
+
+          if [ -n "$REPORT_FILE" ]; then
+            API_URL="http://gitea:3000/api/v1"
+            SHORT_SHA=$(echo "$COMMIT_SHA" | cut -c1-7)
+            DEST_PATH="reports/grade_report_${SHORT_SHA}.${REPORT_FILE##*.}"
+
+            CONTENT=$(base64 -w 0 "$REPORT_FILE")
+            printf '{"message": "Add grade report for %s", "content": "%s"}\n' "$SHORT_SHA" "$CONTENT" > /tmp/upload_request.json
+
+            RESULT=$(curl -s -X POST -H "Authorization: token $TOKEN" \
+              -H "Content-Type: application/json" \
+              "$API_URL/repos/$REPO/contents/$DEST_PATH" \
+              -d @/tmp/upload_request.json)
+
+            if echo "$RESULT" | grep -q '"content"'; then
+              echo "✅ Report uploaded to $DEST_PATH"
+            else
+              echo "POST failed, trying PUT with SHA..."
+              SHA=$(curl -s -H "Authorization: token $TOKEN" \
+                "$API_URL/repos/$REPO/contents/$DEST_PATH" \
+                | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('sha','') if isinstance(d,dict) and 'sha' in d else '')" 2>/dev/null || echo "")
+
+              if [ -n "$SHA" ]; then
+                printf '{"message": "Update grade report for %s", "content": "%s", "sha": "%s"}\n' "$SHORT_SHA" "$CONTENT" "$SHA" > /tmp/upload_request.json
+                RESULT=$(curl -s -X PUT -H "Authorization: token $TOKEN" \
+                  -H "Content-Type: application/json" \
+                  "$API_URL/repos/$REPO/contents/$DEST_PATH" \
+                  -d @/tmp/upload_request.json)
+                if echo "$RESULT" | grep -q '"content"'; then
+                  echo "✅ Report updated at $DEST_PATH"
+                else
+                  echo "⚠️ Failed to update report: $RESULT"
+                fi
+              else
+                echo "⚠️ Could not get file SHA, upload failed"
+              fi
+            fi
+            rm -f /tmp/upload_request.json
+          fi
+
+      - name: Create metadata
+        working-directory: ${{ github.workspace }}
+        env:
+          REPO: ${{ github.repository }}
+          LANGUAGE: python
+        run: |
+          if [ -f final_grade.json ]; then
+            export GRADE_TYPE=final
+            export GRADE_FILE=final_grade.json
+            if [ -f .autograde/create_minimal_metadata.py ]; then
+              python ./.autograde/create_minimal_metadata.py > metadata.json || echo "{}" > metadata.json
+            else
+              echo "{}" > metadata.json
+            fi
+          fi
+
+      - name: Upload metadata
+        if: env.RUNNER_METADATA_TOKEN != ''
+        working-directory: ${{ github.workspace }}
+        env:
+          METADATA_REPO: ${{ github.repository_owner }}/course-metadata
+          METADATA_TOKEN: ${{ env.RUNNER_METADATA_TOKEN }}
+          METADATA_BRANCH: ${{ env.RUNNER_METADATA_BRANCH }}
+          STUDENT_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          COMMIT_SHA: ${{ github.sha }}
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          if [ -f metadata.json ] && [ -f .autograde/upload_metadata.py ]; then
+            python ./.autograde/upload_metadata.py \
+              --metadata-file metadata.json \
+              --metadata-repo "${METADATA_REPO}" \
+              --branch "${METADATA_BRANCH:-main}" \
+              --student-repo "${STUDENT_REPO}" \
+              --run-id "${RUN_ID}" \
+              --commit-sha "${COMMIT_SHA}" \
+              --workflow grade \
+              --server-url "${SERVER_URL}" \
+              --external-host "${EXTERNAL_GITEA_HOST}"
+          else
+            echo "⚠️ metadata.json or upload_metadata.py not found, skipping upload"
+          fi
+
