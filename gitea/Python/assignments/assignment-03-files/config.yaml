@@ -1,0 +1,19 @@
+assignment_id: assignment-03-files
+title: "作业 3：文件批量处理工具"
+description: "批量重命名、整理、统计目录下的文件，考察文件操作和异常处理能力。"
+due_date: "2025-04-19 23:59:59 +08:00"
+total_score: 20
+grading:
+  enable_llm: true
+  enable_tests: true
+  groups:
+    core:
+      description: "基础功能：列出文件、筛选、重命名、整理、统计"
+      weight: 0.50
+    edge:
+      description: "边界处理：隐藏文件、无扩展名、重命名冲突、权限错误等"
+      weight: 0.25
+    report:
+      description: "REPORT.md 反思报告"
+      weight: 0.25
+

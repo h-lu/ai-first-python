@@ -1,0 +1,18 @@
+assignment_id: assignment-02-grades
+title: "作业 2：成绩统计分析器"
+description: "从 CSV 读取成绩数据，进行统计分析并生成报告，考察函数设计和数据结构使用。"
+due_date: "2025-04-05 23:59:59 +08:00"
+total_score: 20
+grading:
+  enable_llm: true
+  enable_tests: true
+  groups:
+    core:
+      description: "基础功能：读取CSV、平均分、分布、排名、导出"
+      weight: 0.50
+    edge:
+      description: "边界处理：缺失值、非法分数、编码问题、空文件等"
+      weight: 0.25
+    report:
+      description: "REPORT.md 反思报告"
+      weight: 0.25

@@ -1,0 +1,7 @@
+# 核心依赖
+openai>=1.0.0
+python-dotenv>=1.0.0
+
+# Web 界面
+streamlit>=1.28.0
+

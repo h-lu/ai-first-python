@@ -1,0 +1,65 @@
+{
+  "index.qmd": {
+    "index.html": "26f35543"
+  },
+  "preface.qmd": {
+    "preface.html": "ab7ca774"
+  },
+  "chapters/01-intro.qmd": {
+    "01-intro.html": "a9c219fd"
+  },
+  "chapters/02-thinking.qmd": {
+    "02-thinking.html": "eff10153"
+  },
+  "chapters/03-debugging.qmd": {
+    "03-debugging.html": "d3181a14"
+  },
+  "chapters/04-functions.qmd": {
+    "04-functions.html": "79b9ec16"
+  },
+  "chapters/05-data-structures.qmd": {
+    "05-data-structures.html": "2015de57"
+  },
+  "chapters/06-files.qmd": {
+    "06-files.html": "3247dc6a"
+  },
+  "chapters/07-errors.qmd": {
+    "07-errors.html": "47185266"
+  },
+  "chapters/08-data-tools.qmd": {
+    "08-data-tools.html": "24a6db07"
+  },
+  "chapters/09-data-cleaning.qmd": {
+    "09-data-cleaning.html": "e130879a"
+  },
+  "chapters/10-visualization.qmd": {
+    "10-visualization.html": "4169d4e4"
+  },
+  "chapters/11-api.qmd": {
+    "11-api.html": "0aaf109d"
+  },
+  "chapters/12-llm-basics.qmd": {
+    "12-llm-basics.html": "b2d615be"
+  },
+  "chapters/13-web-apps.qmd": {
+    "13-web-apps.html": "9d97003f"
+  },
+  "chapters/14-project-dev.qmd": {
+    "14-project-dev.html": "5f003a8e"
+  },
+  "chapters/15-project-review.qmd": {
+    "15-project-review.html": "3ae2384b"
+  },
+  "chapters/16-summary.qmd": {
+    "16-summary.html": "fd918bd6"
+  },
+  "appendix/assignments.qmd": {
+    "assignments.html": "1336194c"
+  },
+  "appendix/grading.qmd": {
+    "grading.html": "a1977dd5"
+  },
+  "references.qmd": {
+    "references.html": "d640dba7"
+  }
+}

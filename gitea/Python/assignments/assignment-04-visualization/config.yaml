@@ -1,0 +1,19 @@
+assignment_id: assignment-04-visualization
+title: "作业 4：数据可视化仪表板"
+description: "分析数据集，生成可视化报告，考察数据处理和可视化能力。"
+due_date: "2025-05-10 23:59:59 +08:00"
+total_score: 20
+grading:
+  enable_llm: true
+  enable_tests: true
+  groups:
+    core:
+      description: "基础功能：加载数据、统计、柱状图、折线图、报告生成"
+      weight: 0.50
+    edge:
+      description: "边界处理：缺失值、中文标签、异常值、空数据等"
+      weight: 0.20
+    report:
+      description: "REPORT.md 反思报告"
+      weight: 0.30
+

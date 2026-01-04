@@ -1,0 +1,412 @@
+# 错误处理与健壮性 {#sec-errors}
+
+::: {.callout-note}
+## 本章概要
+- **课时**：2课时（第7周）
+- **目标**：理解异常处理，让程序更加健壮
+:::
+
+## 学习目标
+
+完成本章后，你将能够：
+
+1. 理解程序为什么会崩溃
+2. 掌握异常处理的基本用法
+3. 用 AI 预判和处理潜在错误
+
+---
+
+## 程序为什么会崩溃？
+
+### 错误是不可避免的
+
+```{mermaid}
+mindmap
+  root((程序错误))
+    用户输入
+      输入为空
+      格式错误
+      超出范围
+    外部资源
+      文件不存在
+      网络断开
+      权限不足
+    逻辑问题
+      除以零
+      索引越界
+      类型不匹配
+    环境问题
+      依赖缺失
+      版本不兼容
+```
+
+### 常见错误类型
+
+```{python}
+#| eval: false
+# 1. FileNotFoundError - 文件不存在
+with open("不存在的文件.txt") as f:
+    content = f.read()
+
+# 2. ZeroDivisionError - 除以零
+result = 10 / 0
+
+# 3. TypeError - 类型不匹配
+result = "hello" + 5
+
+# 4. KeyError - 字典键不存在
+data = {"name": "张三"}
+print(data["age"])
+
+# 5. IndexError - 索引越界
+nums = [1, 2, 3]
+print(nums[10])
+
+# 6. ValueError - 值不合法
+num = int("abc")
+```
+
+### 错误速查表
+
+| 错误类型 | 原因 | 示例 |
+|---------|------|------|
+| `FileNotFoundError` | 文件不存在 | `open("不存在.txt")` |
+| `ZeroDivisionError` | 除以零 | `10 / 0` |
+| `TypeError` | 类型不匹配 | `"hello" + 5` |
+| `KeyError` | 字典键不存在 | `d["不存在的键"]` |
+| `IndexError` | 列表越界 | `[1,2,3][10]` |
+| `ValueError` | 值不合法 | `int("abc")` |
+| `AttributeError` | 属性不存在 | `None.split()` |
+
+---
+
+## 异常处理：try-except
+
+### 基本语法
+
+```{mermaid}
+flowchart TD
+    A["try:"] --> B["可能出错的代码"]
+    B --> C{"发生错误？"}
+    C -->|是| D["except:"]
+    D --> E["处理错误"]
+    C -->|否| F["else:（可选）"]
+    F --> G["没出错时执行"]
+    E --> H["finally:（可选）"]
+    G --> H
+    H --> I["无论如何都执行"]
+```
+
+```{python}
+#| eval: true
+def safe_divide(a, b):
+    """安全除法"""
+    try:
+        result = a / b
+    except ZeroDivisionError:
+        print("错误：除数不能为零")
+        return None
+    else:
+        print("计算成功")
+        return result
+    finally:
+        print("计算完成")  # 无论如何都执行
+
+print(safe_divide(10, 2))
+print("---")
+print(safe_divide(10, 0))
+```
+
+### 捕获多种错误
+
+```{python}
+#| eval: true
+def safe_get_value(data, key, index=None):
+    """安全获取值"""
+    try:
+        value = data[key]
+        if index is not None:
+            value = value[index]
+        return value
+    except KeyError:
+        return f"键 '{key}' 不存在"
+    except IndexError:
+        return f"索引 {index} 越界"
+    except TypeError:
+        return "类型错误"
+
+data = {"scores": [85, 90, 78]}
+
+print(safe_get_value(data, "scores", 0))   # 85
+print(safe_get_value(data, "name"))        # 键 'name' 不存在
+print(safe_get_value(data, "scores", 10))  # 索引 10 越界
+```
+
+### 获取错误信息
+
+```{python}
+#| eval: true
+def parse_number(text):
+    """解析数字"""
+    try:
+        return int(text)
+    except ValueError as e:
+        print(f"无法解析 '{text}': {e}")
+        return None
+
+print(parse_number("123"))
+print(parse_number("abc"))
+```
+
+---
+
+## 让 AI 预判潜在错误
+
+### Prompt 技巧
+
+```
+审查这段代码，列出所有可能发生的错误，并添加适当的异常处理：
+
+[粘贴代码]
+```
+
+### 案例：让 AI 加固代码
+
+**原始代码**：
+```python
+def get_student_score(students, student_id):
+    return students[student_id]['score']
+```
+
+**Prompt**：
+```
+这个函数可能有哪些问题？帮我加固代码。
+```
+
+**AI 加固后**：
+
+```{python}
+#| eval: true
+def get_student_score(students, student_id):
+    """
+    安全获取学生成绩
+    
+    Returns:
+        成绩值，如果获取失败返回 None
+    """
+    # 检查 students 是否为 None
+    if students is None:
+        print("错误：学生数据为空")
+        return None
+    
+    # 检查 student_id 是否存在
+    if student_id not in students:
+        print(f"错误：学生 {student_id} 不存在")
+        return None
+    
+    student = students[student_id]
+    
+    # 检查 score 字段是否存在
+    if 'score' not in student:
+        print(f"错误：学生 {student_id} 没有成绩记录")
+        return None
+    
+    return student['score']
+
+# 测试
+students = {
+    "001": {"name": "张三", "score": 85},
+    "002": {"name": "李四"}  # 故意缺少 score
+}
+
+print(get_student_score(students, "001"))  # 85
+print(get_student_score(students, "003"))  # 不存在
+print(get_student_score(students, "002"))  # 没有成绩
+print(get_student_score(None, "001"))      # 数据为空
+```
+
+---
+
+## 防御式编程
+
+### 输入验证
+
+```{mermaid}
+flowchart LR
+    A["用户输入"] --> B{"验证"}
+    B -->|有效| C["处理"]
+    B -->|无效| D["返回错误"]
+    C --> E["返回结果"]
+```
+
+### 实践原则
+
+| 原则 | 说明 | 示例 |
+|-----|------|------|
+| **假设输入有问题** | 总是验证输入 | 检查是否为 None |
+| **快速失败** | 早发现早报错 | 在函数开头验证 |
+| **明确错误信息** | 帮助调试 | 说明哪里出错 |
+| **提供默认值** | 优雅降级 | 返回默认值而非崩溃 |
+
+### 验证函数模板
+
+```{python}
+#| eval: true
+def process_scores(scores):
+    """
+    处理成绩列表
+    
+    Args:
+        scores: 成绩列表
+        
+    Returns:
+        平均分，如果无法计算返回 None
+        
+    Raises:
+        ValueError: 当包含无效成绩时
+    """
+    # 1. 验证输入不为空
+    if not scores:
+        print("警告：成绩列表为空")
+        return None
+    
+    # 2. 验证类型
+    if not isinstance(scores, (list, tuple)):
+        raise TypeError("scores 必须是列表或元组")
+    
+    # 3. 验证每个元素
+    valid_scores = []
+    for i, score in enumerate(scores):
+        if not isinstance(score, (int, float)):
+            print(f"警告：第 {i+1} 个成绩无效，跳过")
+            continue
+        if score < 0 or score > 100:
+            print(f"警告：成绩 {score} 超出范围，跳过")
+            continue
+        valid_scores.append(score)
+    
+    # 4. 检查是否有有效数据
+    if not valid_scores:
+        print("错误：没有有效成绩")
+        return None
+    
+    return sum(valid_scores) / len(valid_scores)
+
+# 测试
+print(process_scores([85, 90, 78]))          # 正常
+print(process_scores([85, "无效", 78]))       # 有无效值
+print(process_scores([85, 150, 78]))          # 有超范围值
+print(process_scores([]))                     # 空列表
+```
+
+---
+
+## 文件操作的错误处理
+
+文件操作是最容易出错的地方之一：
+
+```{python}
+#| eval: true
+from pathlib import Path
+
+def safe_read_file(filepath):
+    """安全读取文件"""
+    path = Path(filepath)
+    
+    # 检查文件是否存在
+    if not path.exists():
+        print(f"错误：文件不存在 - {filepath}")
+        return None
+    
+    # 检查是否是文件（不是目录）
+    if not path.is_file():
+        print(f"错误：不是文件 - {filepath}")
+        return None
+    
+    # 尝试读取
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        try:
+            return path.read_text(encoding="gbk")
+        except UnicodeDecodeError:
+            print(f"错误：无法解码文件 - {filepath}")
+            return None
+    except PermissionError:
+        print(f"错误：没有读取权限 - {filepath}")
+        return None
+    except Exception as e:
+        print(f"错误：读取失败 - {e}")
+        return None
+
+# 测试
+content = safe_read_file("不存在的文件.txt")
+print(f"结果: {content}")
+```
+
+---
+
+## 错误日志记录
+
+在实际项目中，应该记录错误而不是只打印：
+
+```{python}
+#| eval: false
+import logging
+
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    filename='app.log'
+)
+
+def process_data(data):
+    try:
+        result = do_something(data)
+        logging.info(f"处理成功: {data}")
+        return result
+    except Exception as e:
+        logging.error(f"处理失败: {data}, 错误: {e}")
+        return None
+```
+
+---
+
+## 课后作业
+
+### 完成作业 3：文件批量处理工具
+
+**本周任务**：处理 Edge 测试
+
+1. `test_file_hidden_files`: 隐藏文件处理
+2. `test_file_no_extension`: 无扩展名文件
+3. `test_file_duplicate_name`: 重命名冲突处理
+4. `test_file_permission_error`: 无权限文件跳过
+
+**REPORT.md 要求**：
+- 展示你的 Prompt 如何描述"重命名冲突"这个需求
+- 对比 AI 第一次生成的代码和你最终版本的差异
+
+**提交截止**：本周日
+
+---
+
+## 本章小结
+
+- **错误不可避免**：用户输入、外部资源、逻辑问题都可能导致错误
+- **try-except** 是处理错误的基本工具
+- **防御式编程**：假设输入有问题，提前验证
+- **快速失败**：在函数开头验证，早发现早处理
+- **明确错误信息**：帮助调试和定位问题
+- **让 AI 帮忙**：让 AI 审查代码，发现潜在问题
+
+```{mermaid}
+flowchart LR
+    A["写代码"] --> B["让 AI 审查"]
+    B --> C["添加错误处理"]
+    C --> D["测试边界情况"]
+    D --> E["健壮的程序"]
+```
+
+下一章，我们将进入**数据科学工具链**——接触真正的数据分析。

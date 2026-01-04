@@ -1,0 +1,390 @@
+# 函数与模块化设计 {#sec-functions}
+
+::: {.callout-note}
+## 本章概要
+- **课时**：2课时（第4周）
+- **目标**：理解函数的作用，用自然语言描述功能让 AI 生成函数
+:::
+
+## 学习目标
+
+完成本章后，你将能够：
+
+1. 理解函数的作用和模块化思想
+2. 用自然语言描述功能需求，让 AI 生成函数
+3. 设计合理的函数输入输出
+
+---
+
+## 为什么需要函数？
+
+### 从"复制粘贴"到"一次定义，多次使用"
+
+假设你需要计算 10 个学生的平均分：
+
+**❌ 不好的代码**（复制粘贴）：
+
+```{python}
+#| eval: false
+# 计算学生1的平均分
+total1 = 80 + 90 + 75
+avg1 = total1 / 3
+print(f"学生1平均分: {avg1}")
+
+# 计算学生2的平均分
+total2 = 85 + 88 + 92
+avg2 = total2 / 3
+print(f"学生2平均分: {avg2}")
+
+# 计算学生3的平均分...（重复10次）
+```
+
+**✅ 好的代码**（使用函数）：
+
+```{python}
+#| eval: true
+def calculate_average(scores):
+    """计算平均分"""
+    return sum(scores) / len(scores)
+
+# 简洁！一行搞定
+print(f"学生1平均分: {calculate_average([80, 90, 75])}")
+print(f"学生2平均分: {calculate_average([85, 88, 92])}")
+```
+
+### 函数的好处
+
+```{mermaid}
+mindmap
+  root((函数的好处))
+    避免重复
+      一次编写
+      多次调用
+    易于修改
+      改一处
+      处处生效
+    代码清晰
+      命名表意
+      逻辑分离
+    便于测试
+      独立单元
+      可验证
+```
+
+| 问题 | 没有函数 | 使用函数 |
+|-----|---------|---------|
+| 修改计算逻辑 | 改 N 处 | 改 1 处 |
+| 代码行数 | 30+ 行 | 5 行 |
+| 出错概率 | 高（复制容易出错） | 低 |
+| 可读性 | 差（重复代码） | 好（语义清晰） |
+
+---
+
+## 函数的基本结构
+
+```{python}
+#| eval: true
+def greet(name, greeting="你好"):
+    """
+    问候函数
+    
+    Args:
+        name: 被问候的人名
+        greeting: 问候语，默认"你好"
+    
+    Returns:
+        问候字符串
+    """
+    return f"{greeting}，{name}！"
+
+# 调用函数
+print(greet("张三"))          # 使用默认值
+print(greet("李四", "早上好"))  # 自定义问候语
+```
+
+### 函数结构解析
+
+```{mermaid}
+flowchart TD
+    A["def 函数名(参数):"] --> B["文档字符串 (docstring)"]
+    B --> C["函数体（处理逻辑）"]
+    C --> D["return 返回值"]
+    
+    style A fill:#e1f5fe
+    style B fill:#fff9c4
+    style C fill:#f3e5f5
+    style D fill:#e8f5e9
+```
+
+| 组成部分 | 说明 | 示例 |
+|---------|------|------|
+| `def` | 定义函数的关键字 | `def calculate_average` |
+| 函数名 | 有意义的名称（动词开头） | `calculate_average`, `get_user`, `format_phone` |
+| 参数 | 输入数据 | `(scores)`, `(name, age)` |
+| 文档字符串 | 说明函数用途 | `"""计算平均分"""` |
+| 函数体 | 处理逻辑 | 计算、判断、操作 |
+| 返回值 | 输出结果 | `return result` |
+
+---
+
+## 用自然语言让 AI 生成函数
+
+### Prompt 模板
+
+```
+写一个 Python 函数 [函数名]：
+- 功能：[做什么]
+- 输入参数：[参数1]（类型，说明）, [参数2]...
+- 返回值：[返回什么]
+- 边界处理：[特殊情况怎么办]
+- 示例：[输入] → [输出]
+```
+
+### 课堂练习 1：成绩等级转换
+
+**Prompt**：
+```
+写一个函数 score_to_grade(score)：
+- 输入：分数（0-100的整数）
+- 输出：等级字符串（优秀/良好/中等/及格/不及格）
+- 规则：90+优秀，80-89良好，70-79中等，60-69及格，60以下不及格
+- 边界：如果分数不在0-100范围，返回"无效分数"
+```
+
+**AI 生成的代码**：
+
+```{python}
+#| eval: true
+def score_to_grade(score):
+    """将分数转换为等级"""
+    if not isinstance(score, (int, float)):
+        return "无效分数"
+    if score < 0 or score > 100:
+        return "无效分数"
+    
+    if score >= 90:
+        return "优秀"
+    elif score >= 80:
+        return "良好"
+    elif score >= 70:
+        return "中等"
+    elif score >= 60:
+        return "及格"
+    else:
+        return "不及格"
+
+# 测试
+print(score_to_grade(95))   # 优秀
+print(score_to_grade(85))   # 良好
+print(score_to_grade(55))   # 不及格
+print(score_to_grade(-10))  # 无效分数
+```
+
+### 课堂练习 2：手机号格式化
+
+**Prompt**：
+```
+写一个函数 format_phone(phone)：
+- 输入：手机号字符串（可能含空格、横线）
+- 输出：格式化后的手机号 "xxx-xxxx-xxxx"
+- 边界：如果清理后不是11位数字，返回 None
+```
+
+**AI 生成的代码**：
+
+```{python}
+#| eval: true
+def format_phone(phone):
+    """格式化手机号为 xxx-xxxx-xxxx 格式"""
+    if not phone:
+        return None
+    
+    # 只保留数字
+    cleaned = ''.join(c for c in phone if c.isdigit())
+    
+    # 检查长度
+    if len(cleaned) != 11:
+        return None
+    
+    return f"{cleaned[:3]}-{cleaned[3:7]}-{cleaned[7:]}"
+
+# 测试
+print(format_phone("138 0013 8000"))     # 138-0013-8000
+print(format_phone("138-0013-8000"))     # 138-0013-8000
+print(format_phone("12345"))             # None
+```
+
+---
+
+## 函数设计原则
+
+### 单一职责原则
+
+一个函数只做一件事！
+
+```{mermaid}
+flowchart LR
+    subgraph "❌ 不好的设计"
+        A["calculate_and_print_and_save()"]
+    end
+    
+    subgraph "✅ 好的设计"
+        B["calculate()"] --> C["format()"]
+        C --> D["save()"]
+    end
+```
+
+**❌ 不好**：
+```python
+def process_scores(scores):
+    avg = sum(scores) / len(scores)  # 计算
+    print(f"平均分: {avg}")           # 打印
+    with open("result.txt", "w") as f:  # 保存
+        f.write(str(avg))
+    return avg
+```
+
+**✅ 好**：
+```python
+def calculate_average(scores):
+    return sum(scores) / len(scores)
+
+def format_result(avg):
+    return f"平均分: {avg:.2f}"
+
+def save_result(result, filepath):
+    with open(filepath, "w") as f:
+        f.write(result)
+```
+
+### 设计原则速查
+
+| 原则 | 说明 | 示例 |
+|-----|------|------|
+| **单一职责** | 一个函数只做一件事 | ✅ `calculate_avg()` ❌ `calculate_avg_and_print()` |
+| **明确命名** | 用动词开头，表达意图 | ✅ `get_user()` ❌ `user()` |
+| **参数有意义** | 参数名要有含义 | ✅ `(name, age)` ❌ `(a, b)` |
+| **返回值明确** | 类型一致，避免意外 | ✅ 总是返回数字 ❌ 有时返回数字有时返回字符串 |
+| **处理边界** | 考虑异常情况 | 空列表、无效输入 |
+
+---
+
+## 实战：设计成绩分析模块
+
+让我们一起设计一个成绩分析模块，包含多个函数。
+
+### 第一步：需求分解
+
+```{mermaid}
+flowchart TD
+    A["成绩分析需求"] --> B["加载数据"]
+    A --> C["基础统计"]
+    A --> D["等级分析"]
+    A --> E["生成报告"]
+    
+    B --> B1["load_scores()"]
+    C --> C1["calculate_average()"]
+    C --> C2["get_max_min()"]
+    D --> D1["get_grade_distribution()"]
+    E --> E1["generate_report()"]
+```
+
+### 第二步：逐个实现
+
+```{python}
+#| eval: true
+def calculate_average(scores):
+    """计算平均分"""
+    if not scores:
+        return None
+    return sum(scores) / len(scores)
+
+def get_max_min(scores):
+    """获取最高分和最低分"""
+    if not scores:
+        return None, None
+    return max(scores), min(scores)
+
+def get_grade_distribution(scores):
+    """统计各等级人数"""
+    distribution = {"优秀": 0, "良好": 0, "中等": 0, "及格": 0, "不及格": 0}
+    for score in scores:
+        grade = score_to_grade(score)
+        if grade in distribution:
+            distribution[grade] += 1
+    return distribution
+
+def generate_report(scores):
+    """生成分析报告"""
+    avg = calculate_average(scores)
+    max_score, min_score = get_max_min(scores)
+    distribution = get_grade_distribution(scores)
+    
+    return {
+        "人数": len(scores),
+        "平均分": round(avg, 2) if avg else None,
+        "最高分": max_score,
+        "最低分": min_score,
+        "等级分布": distribution
+    }
+
+# 测试
+scores = [92, 85, 78, 65, 55, 88, 72, 60, 95, 42]
+report = generate_report(scores)
+print(report)
+```
+
+---
+
+## Cursor 实用技巧
+
+### Tab 补全
+
+在 Cursor 中，输入函数签名后，AI 会自动预测函数体：
+
+```python
+def calculate_average(scores):
+    # 输入到这里，按 Tab 让 AI 补全
+```
+
+### Ctrl+K 生成
+
+1. 把光标放在想要生成代码的位置
+2. 按 `Ctrl+K`（Mac: `Cmd+K`）
+3. 输入描述，如："写一个函数计算列表中正数的个数"
+4. AI 直接在光标位置生成代码
+
+### 选中后让 AI 重构
+
+1. 选中一段代码
+2. 按 `Ctrl+L`（Mac: `Cmd+L`）
+3. 说："把这段代码重构成函数"
+
+---
+
+## 课后作业
+
+### 开始作业 2：成绩统计分析器
+
+**本周任务**：用 AI 生成以下函数：
+
+1. `load_csv(filepath)` - 加载成绩文件
+2. `calculate_average(scores)` - 计算平均分
+3. `get_distribution(scores)` - 生成分数分布
+4. `get_ranking(students)` - 生成排名（处理并列）
+
+**REPORT.md 要求**：
+- 展示至少 2 个函数的 Prompt 设计过程
+- 分析 AI 第一次生成的代码有什么需要修改的
+
+---
+
+## 本章小结
+
+- **函数**是代码复用的基本单元：一次编写，多次调用
+- **函数设计原则**：单一职责、明确命名、处理边界
+- **Prompt 技巧**：描述功能、输入输出、边界情况、示例
+- **Cursor 技巧**：Tab 补全、Ctrl+K 生成、选中重构
+- 先想清楚**函数签名**（名称、参数、返回值），再让 AI 写实现
+
+下一章，我们将学习**数据结构**——如何选择合适的方式组织数据。

@@ -1,0 +1,420 @@
+# 文件操作与外部数据 {#sec-files}
+
+::: {.callout-note}
+## 本章概要
+- **课时**：2课时（第6周）
+- **目标**：掌握文件读写操作，培养自动化脚本思维
+:::
+
+## 学习目标
+
+完成本章后，你将能够：
+
+1. 读写文本文件、CSV 文件
+2. 用 AI 处理文件路径问题
+3. 编写批量处理文件的脚本
+
+---
+
+## 文件操作基础
+
+### 文件操作流程
+
+```{mermaid}
+flowchart LR
+    A["打开文件"] --> B["读取/写入"]
+    B --> C["关闭文件"]
+    
+    D["with open() as f:"] --> E["自动管理"]
+    E --> F["自动关闭"]
+    
+    style D fill:#e8f5e9
+    style E fill:#e8f5e9
+    style F fill:#e8f5e9
+```
+
+### 读取文本文件
+
+```{python}
+#| eval: false
+# 方法 1：读取全部内容
+with open("data.txt", "r", encoding="utf-8") as f:
+    content = f.read()
+    print(content)
+
+# 方法 2：按行读取
+with open("data.txt", "r", encoding="utf-8") as f:
+    for line in f:
+        print(line.strip())  # strip() 去除换行符
+
+# 方法 3：读取为列表
+with open("data.txt", "r", encoding="utf-8") as f:
+    lines = f.readlines()
+    print(f"共 {len(lines)} 行")
+```
+
+### 写入文本文件
+
+```{python}
+#| eval: false
+# 写入（覆盖）
+with open("output.txt", "w", encoding="utf-8") as f:
+    f.write("第一行\n")
+    f.write("第二行\n")
+
+# 追加写入
+with open("output.txt", "a", encoding="utf-8") as f:
+    f.write("追加的内容\n")
+
+# 写入多行
+lines = ["Line 1", "Line 2", "Line 3"]
+with open("output.txt", "w", encoding="utf-8") as f:
+    f.writelines(line + "\n" for line in lines)
+```
+
+::: {.callout-important}
+## 始终使用 with 语句！
+`with` 语句会自动关闭文件，即使发生错误也能正确关闭，避免资源泄露。
+:::
+
+---
+
+## CSV 文件处理
+
+### CSV 文件格式
+
+CSV（Comma-Separated Values）是最常见的数据交换格式之一：
+
+```
+学号,姓名,成绩
+001,张三,85
+002,李四,92
+003,王五,78
+```
+
+### 读取 CSV 文件
+
+```{python}
+#| eval: false
+import csv
+
+# 方法 1：csv.reader（返回列表）
+with open("grades.csv", "r", encoding="utf-8") as f:
+    reader = csv.reader(f)
+    header = next(reader)  # 跳过标题行
+    for row in reader:
+        print(f"{row[1]}: {row[2]}分")
+
+# 方法 2：csv.DictReader（返回字典，推荐！）
+with open("grades.csv", "r", encoding="utf-8") as f:
+    reader = csv.DictReader(f)
+    for row in reader:
+        print(f"{row['姓名']}: {row['成绩']}分")
+```
+
+### 写入 CSV 文件
+
+```{python}
+#| eval: false
+import csv
+
+# 准备数据
+students = [
+    {"学号": "001", "姓名": "张三", "成绩": 85},
+    {"学号": "002", "姓名": "李四", "成绩": 92},
+    {"学号": "003", "姓名": "王五", "成绩": 78}
+]
+
+# 写入 CSV
+with open("output.csv", "w", encoding="utf-8", newline="") as f:
+    writer = csv.DictWriter(f, fieldnames=["学号", "姓名", "成绩"])
+    writer.writeheader()  # 写入标题行
+    writer.writerows(students)  # 写入所有数据
+```
+
+---
+
+## 文件路径处理
+
+### pathlib：现代路径处理
+
+```{mermaid}
+mindmap
+  root((pathlib))
+    路径操作
+      拼接路径
+      获取父目录
+      获取文件名
+    文件检查
+      exists 是否存在
+      is_file 是否是文件
+      is_dir 是否是目录
+    文件操作
+      read_text 读取
+      write_text 写入
+      mkdir 创建目录
+```
+
+```{python}
+#| eval: true
+from pathlib import Path
+
+# 创建路径对象
+data_dir = Path("data")
+file_path = data_dir / "grades.csv"  # 用 / 拼接路径（跨平台！）
+
+print(f"路径: {file_path}")
+print(f"文件名: {file_path.name}")
+print(f"扩展名: {file_path.suffix}")
+print(f"父目录: {file_path.parent}")
+```
+
+### 遍历目录
+
+```{python}
+#| eval: false
+from pathlib import Path
+
+# 获取当前目录下所有文件
+current_dir = Path(".")
+for file in current_dir.iterdir():
+    if file.is_file():
+        print(f"文件: {file.name}")
+    elif file.is_dir():
+        print(f"目录: {file.name}/")
+
+# 递归查找所有 Python 文件
+for py_file in current_dir.rglob("*.py"):
+    print(py_file)
+
+# 按扩展名筛选
+for csv_file in current_dir.glob("*.csv"):
+    print(csv_file)
+```
+
+---
+
+## 让 AI 处理文件相关问题
+
+### 常见文件问题
+
+```{mermaid}
+flowchart TD
+    A["文件操作问题"] --> B["路径问题"]
+    A --> C["编码问题"]
+    A --> D["权限问题"]
+    
+    B --> B1["Windows vs Mac/Linux"]
+    B --> B2["相对路径 vs 绝对路径"]
+    B --> B3["文件不存在"]
+    
+    C --> C1["UTF-8 vs GBK"]
+    C --> C2["乱码处理"]
+    
+    D --> D1["只读文件"]
+    D --> D2["目录不存在"]
+```
+
+### Prompt 示例：安全读取文件
+
+```
+写一个函数 read_file_safe(filepath)：
+- 读取文件内容
+- 自动处理 UTF-8 和 GBK 编码
+- 如果文件不存在，返回 None 而不是报错
+- 支持 Windows 和 Mac/Linux 路径
+```
+
+**AI 生成的代码**：
+
+```{python}
+#| eval: true
+from pathlib import Path
+
+def read_file_safe(filepath):
+    """安全读取文件，自动处理编码"""
+    path = Path(filepath)
+    
+    # 检查文件是否存在
+    if not path.exists():
+        return None
+    
+    # 尝试不同编码
+    encodings = ["utf-8", "gbk", "gb2312", "latin-1"]
+    
+    for encoding in encodings:
+        try:
+            return path.read_text(encoding=encoding)
+        except UnicodeDecodeError:
+            continue
+    
+    return None  # 所有编码都失败
+
+# 测试
+# content = read_file_safe("data.txt")
+# if content:
+#     print(content)
+# else:
+#     print("文件不存在或无法读取")
+```
+
+---
+
+## 实战：批量处理文件
+
+### 场景：整理下载文件夹
+
+**需求**：
+1. 列出目录下所有文件
+2. 按扩展名分类（图片、文档、视频等）
+3. 移动到对应子目录
+4. 生成整理报告
+
+### 分步实现
+
+```{python}
+#| eval: true
+from pathlib import Path
+
+def get_file_category(filename):
+    """根据扩展名返回文件类别"""
+    ext = Path(filename).suffix.lower()
+    
+    categories = {
+        "images": [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"],
+        "documents": [".doc", ".docx", ".pdf", ".txt", ".xlsx", ".pptx"],
+        "videos": [".mp4", ".avi", ".mkv", ".mov", ".wmv"],
+        "audio": [".mp3", ".wav", ".flac", ".aac"],
+        "code": [".py", ".js", ".html", ".css", ".java"],
+    }
+    
+    for category, extensions in categories.items():
+        if ext in extensions:
+            return category
+    
+    return "others"
+
+# 测试
+print(get_file_category("photo.jpg"))      # images
+print(get_file_category("report.pdf"))     # documents
+print(get_file_category("movie.mp4"))      # videos
+print(get_file_category("random.xyz"))     # others
+```
+
+### 完整整理脚本
+
+```{python}
+#| eval: false
+from pathlib import Path
+import shutil
+
+def organize_files(source_dir, dry_run=True):
+    """
+    整理文件到分类目录
+    
+    Args:
+        source_dir: 源目录
+        dry_run: 如果为 True，只显示将做什么，不实际执行
+    
+    Returns:
+        整理报告
+    """
+    source = Path(source_dir)
+    report = {"moved": [], "skipped": [], "errors": []}
+    
+    if not source.exists():
+        return {"error": "目录不存在"}
+    
+    for file in source.iterdir():
+        if not file.is_file():
+            continue
+        
+        # 跳过隐藏文件
+        if file.name.startswith("."):
+            report["skipped"].append(str(file))
+            continue
+        
+        # 确定分类
+        category = get_file_category(file.name)
+        target_dir = source / category
+        target_path = target_dir / file.name
+        
+        if dry_run:
+            print(f"将移动: {file.name} -> {category}/")
+            report["moved"].append({"from": str(file), "to": str(target_path)})
+        else:
+            try:
+                target_dir.mkdir(exist_ok=True)
+                shutil.move(str(file), str(target_path))
+                report["moved"].append({"from": str(file), "to": str(target_path)})
+            except Exception as e:
+                report["errors"].append({"file": str(file), "error": str(e)})
+    
+    return report
+
+# 先预览（dry_run=True）
+# report = organize_files("~/Downloads", dry_run=True)
+# 
+# 确认后执行
+# report = organize_files("~/Downloads", dry_run=False)
+```
+
+::: {.callout-warning}
+## 先预览，再执行！
+操作文件时，先用 `dry_run=True` 预览将要做的操作，确认无误后再实际执行。
+:::
+
+---
+
+## 自动化思维
+
+### 什么任务适合自动化？
+
+```{mermaid}
+flowchart TD
+    A["日常任务"] --> B{"重复性高?"}
+    B -->|是| C{"规则明确?"}
+    C -->|是| D{"人工容易出错?"}
+    D -->|是| E["✅ 适合自动化"]
+    
+    B -->|否| F["❌ 不适合"]
+    C -->|否| F
+    D -->|否| G["⚠️ 可选自动化"]
+```
+
+### 适合自动化的场景
+
+| 场景 | 描述 | Python 工具 |
+|-----|------|------------|
+| 批量重命名 | 按规则重命名照片/文件 | `pathlib`, `shutil` |
+| 数据清洗 | 整理 Excel/CSV 中的数据 | `pandas` |
+| 日志分析 | 从日志中提取关键信息 | `re`, 字符串处理 |
+| 报表生成 | 定期生成数据报告 | `pandas`, `matplotlib` |
+| 文件备份 | 自动备份重要文件 | `shutil`, `zipfile` |
+
+---
+
+## 课后作业
+
+### 开始作业 3：文件批量处理工具
+
+**本周任务**：实现核心功能
+
+1. `list_dir(path)` - 列出目录内容
+2. `filter_by_ext(files, ext)` - 按扩展名筛选
+3. `batch_rename(files, pattern)` - 批量重命名
+
+**注意**：本周专注于 Core 测试，下周处理 Edge 情况
+
+---
+
+## 本章小结
+
+- **文件操作三步**：打开 → 读写 → 关闭，用 `with` 自动管理
+- **CSV 处理**：用 `csv.DictReader` 读取，`csv.DictWriter` 写入
+- **路径处理**：用 `pathlib.Path`，跨平台更安全
+- **编码问题**：始终指定 `encoding="utf-8"`
+- **自动化思维**：重复 + 规则明确 + 容易出错 = 适合自动化
+- **安全第一**：操作文件前先预览（dry_run）
+
+下一章，我们将学习**错误处理**——让程序更加健壮。

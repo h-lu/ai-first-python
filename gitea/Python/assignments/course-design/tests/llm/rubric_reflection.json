@@ -1,0 +1,52 @@
+{
+  "id": "reflection",
+  "description": "开发心得：选题思考、AI 协作体验、自我反思与字数达标",
+  "max_score": 15,
+  "borderline_band": [7, 11],
+  "criteria": [
+    {
+      "id": "topic_thinking",
+      "description": "选题思考深度",
+      "max_score": 3,
+      "scoring_guide": [
+        [0, "未说明问题/目标用户，或占位符"],
+        [1, "简单说明但缺少价值/用户理由"],
+        [2, "阐述问题、价值与用户，理由基本充分"],
+        [3, "清晰阐述问题、价值、用户场景，有取舍思考"]
+      ]
+    },
+    {
+      "id": "ai_collaboration",
+      "description": "AI 协作体验与 Prompt 思考",
+      "max_score": 5,
+      "scoring_guide": [
+        [0, "无 AI 协作内容或为空白"],
+        [2, "简单描述使用 AI，无具体 Prompt/理由"],
+        [4, "提供有效 Prompt 示例并说明原因"],
+        [5, "具体 Prompt 示例 + 有效性分析 + AI 无法替代的思考"]
+      ]
+    },
+    {
+      "id": "self_reflection",
+      "description": "自我反思的诚实度与具体性",
+      "max_score": 4,
+      "scoring_guide": [
+        [0, "只有套话/空白，无具体反思"],
+        [1, "有反思但泛泛而谈"],
+        [3, "具体评价优缺点与遗憾点"],
+        [4, "具体且诚实的反思，并提出改进方向"]
+      ]
+    },
+    {
+      "id": "word_count",
+      "description": "字数要求与充实度（>500 字）",
+      "max_score": 3,
+      "scoring_guide": [
+        [0, "少于 300 字或大面积占位符"],
+        [1, "300-500 字，内容单薄或重复"],
+        [2, "≥500 字，内容较充实"],
+        [3, "≥500 字，内容充实且结构清晰"]
+      ]
+    }
+  ]
+}

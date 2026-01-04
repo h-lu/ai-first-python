@@ -1,0 +1,53 @@
+{
+  "id": "functionality",
+  "description": "功能完成度：核心流程、LLM 集成、错误处理与流程完整性",
+  "max_score": 25,
+  "borderline_band": [12, 18],
+  "criteria": [
+    {
+      "id": "core_features",
+      "description": "核心功能是否可用且有价值（缺少 LLM 时最高 6 分）",
+      "max_score": 10,
+      "scoring_guide": [
+        [0, "核心功能无法运行，输出为空或模板占位"],
+        [3, "部分功能可用但缺失关键流程或明显 Bug"],
+        [6, "主要功能可用但缺少有效 LLM 集成（最高分）"],
+        [8, "功能完整，覆盖主要流程，输出清晰"],
+        [10, "功能表现出色，有数据流转与清晰输出格式"]
+      ]
+    },
+    {
+      "id": "llm_integration",
+      "description": "LLM 集成的有效性（必选功能！）",
+      "max_score": 8,
+      "scoring_guide": [
+        [0, "无 LLM 功能或调用完全失败"],
+        [2, "有 LLM 调用但与用户数据无关或输出过短 (<20 字)"],
+        [5, "LLM 输出有意义且与用户数据相关"],
+        [8, "LLM 深度参与业务，输出 >50 字且显著提升价值"]
+      ]
+    },
+    {
+      "id": "error_handling",
+      "description": "错误处理的健壮性",
+      "max_score": 4,
+      "scoring_guide": [
+        [0, "无效输入导致 Traceback 或崩溃"],
+        [1, "有错误提示但仍出现 1-2 次 Traceback"],
+        [3, "无 Traceback，提供基本错误提示"],
+        [4, "无 Traceback，提示友好并指明正确用法"]
+      ]
+    },
+    {
+      "id": "flow_completeness",
+      "description": "流程完整性与可演示性",
+      "max_score": 3,
+      "scoring_guide": [
+        [0, "只有 --help 或零散命令，无法展示完整流程"],
+        [1, "有流程但缺少关键环节或依赖手动操作"],
+        [2, "流程基本完整，少量缺口可容忍"],
+        [3, "流程连贯（输入→处理→LLM→输出/导出），可直接演示"]
+      ]
+    }
+  ]
+}

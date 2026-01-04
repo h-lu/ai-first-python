@@ -1,0 +1,46 @@
+# manifest.yaml - 项目运行声明
+# 评测系统将根据这个文件自动运行项目
+
+project:
+  name: "智能日记助手"
+  description: "记录日记，AI 分析情绪，生成月度总结"
+
+# 运行命令（评测系统会依次执行）
+commands:
+  # 主功能演示
+  demo:
+    - command: "python src/main.py --help"
+      description: "显示帮助信息"
+    - command: "python src/main.py add --content '今天学习了Python，感觉收获很大，特别是理解了装饰器的用法。'"
+      description: "添加日记"
+    - command: "python src/main.py add --content '天气不太好，心情有点低落，但是完成了作业，还是有成就感的。' --tags '学习,天气'"
+      description: "添加带标签的日记"
+    - command: "python src/main.py list --limit 5"
+      description: "列出最近日记"
+    - command: "python src/main.py search 学习"
+      description: "搜索日记"
+    - command: "python src/main.py analyze --id 1"
+      description: "分析日记情绪（LLM 功能）"
+    - command: "python src/main.py summary"
+      description: "生成月度总结（LLM 功能）"
+  
+  # 错误处理演示
+  error_handling:
+    - command: "python src/main.py add --content ''"
+      description: "测试空内容处理"
+    - command: "python src/main.py show --id 99999"
+      description: "测试不存在的日记"
+    - command: "python src/main.py invalid_command"
+      description: "测试无效命令"
+    - command: "python src/main.py add --date 'invalid-date' --content '测试'"
+      description: "测试无效日期格式"
+
+  # Web 界面（可选）
+  web:
+    command: "streamlit run app.py --server.headless true"
+    port: 8501
+
+# 需要的环境变量
+env_vars:
+  - DEEPSEEK_API_KEY
+

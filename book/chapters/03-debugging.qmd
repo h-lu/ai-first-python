@@ -1,0 +1,503 @@
+# 代码理解与调试思维 {#sec-debugging}
+
+::: {.callout-note}
+## 本章概要
+- **课时**：2课时（第3周）
+- **目标**：阅读和理解 AI 生成的代码，用 AI 调试问题
+:::
+
+## 学习目标
+
+完成本章后，你将能够：
+
+1. 阅读和理解 Python 核心语法结构
+2. 分析代码的执行流程
+3. 用 AI 辅助调试代码
+
+---
+
+## 为什么要能读懂代码？
+
+::: {.callout-important}
+## AI 生成的代码不一定正确！
+AI 可以快速生成代码，但你需要能够：
+- 理解代码在做什么
+- 判断是否符合需求
+- 发现潜在问题
+:::
+
+想象一下：你让 AI 帮你写了一个转账程序，但你完全看不懂代码。你敢直接运行吗？
+
+**能读懂代码 ≠ 会从零写代码**
+
+我们的目标不是让你背诵语法、手写每一行代码，而是：
+- 看到代码知道它在做什么
+- 发现不对的地方能描述问题
+- 让 AI 帮你解释不懂的部分
+
+---
+
+## Python 核心语法结构
+
+### 变量：给数据起名字
+
+```{python}
+#| eval: true
+# 变量 = 值
+name = "张三"       # 字符串（用引号包围）
+age = 20            # 整数
+score = 85.5        # 浮点数（小数）
+is_passed = True    # 布尔值（True 或 False）
+
+print(f"{name}, {age}岁, 成绩{score}, 及格：{is_passed}")
+```
+
+**如何识别变量？**
+- 等号左边是变量名
+- 等号右边是值
+- 变量名通常是有意义的英文单词
+
+### 列表：一组数据
+
+```{python}
+#| eval: true
+# 列表用方括号 []
+grades = [85, 92, 78, 60, 45]
+
+# 访问单个元素（从0开始计数）
+print(grades[0])   # 第一个：85
+print(grades[-1])  # 最后一个：45
+
+# 获取长度
+print(len(grades))  # 5
+
+# 遍历列表
+for grade in grades:
+    print(grade)
+```
+
+### 字典：键值对
+
+```{python}
+#| eval: true
+# 字典用花括号 {}
+student = {
+    "name": "张三",
+    "age": 20,
+    "scores": [85, 92, 78]
+}
+
+# 通过键访问值
+print(student["name"])      # 张三
+print(student["scores"][0]) # 85
+```
+
+### 条件判断：if-elif-else
+
+```{python}
+#| eval: true
+score = 85
+
+if score >= 90:
+    print("优秀")
+elif score >= 80:
+    print("良好")
+elif score >= 60:
+    print("及格")
+else:
+    print("不及格")
+```
+
+**阅读要点**：
+- `if` 后面是条件
+- 条件为 `True` 执行缩进的代码块
+- `elif` = else if（否则如果）
+- `else` = 否则（其他所有情况）
+
+### 循环：重复执行
+
+**for 循环**：遍历序列
+
+```{python}
+#| eval: true
+# 遍历列表
+fruits = ["苹果", "香蕉", "橙子"]
+for fruit in fruits:
+    print(f"我喜欢{fruit}")
+```
+
+```{python}
+#| eval: true  
+# 指定次数
+for i in range(3):  # i = 0, 1, 2
+    print(f"第{i+1}次")
+```
+
+**while 循环**：条件满足就继续
+
+```{python}
+#| eval: true
+count = 0
+while count < 3:
+    print(count)
+    count += 1  # count = count + 1
+```
+
+### 函数：封装一段逻辑
+
+```{python}
+#| eval: true
+def calculate_average(scores):
+    """计算平均分"""
+    if len(scores) == 0:
+        return None
+    return sum(scores) / len(scores)
+
+# 调用函数
+result = calculate_average([80, 90, 70])
+print(result)  # 80.0
+```
+
+**阅读要点**：
+- `def` 定义函数
+- 函数名后面是参数
+- `return` 返回结果
+- `"""..."""` 是文档字符串（说明函数用途）
+
+---
+
+## 如何阅读代码
+
+### 阅读策略：从全局到细节
+
+```{mermaid}
+flowchart TD
+    A["📖 开始阅读代码"] --> B["1️⃣ 找入口点"]
+    B --> C["2️⃣ 识别主流程"]
+    C --> D["3️⃣ 理解数据流"]
+    D --> E["4️⃣ 关注边界处理"]
+    E --> F{"有不懂的地方?"}
+    F -->|是| G["🤖 问 AI 解释"]
+    G --> F
+    F -->|否| H["✅ 理解完成"]
+```
+
+1. **找入口点**：程序从哪里开始执行？
+2. **识别主流程**：核心逻辑是什么？
+3. **理解数据流**：数据从哪来、到哪去？
+4. **关注边界**：特殊情况如何处理？
+
+### 实践案例：阅读成绩统计程序
+
+```{python}
+#| eval: false
+def analyze_scores(scores):
+    """分析成绩数据"""
+    # 边界检查
+    if not scores:                    # ← 如果 scores 为空
+        return None
+    
+    # 过滤无效数据
+    valid_scores = [s for s in scores if 0 <= s <= 100]
+    
+    if not valid_scores:              # ← 如果没有有效数据
+        return None
+    
+    # 计算统计量
+    total = sum(valid_scores)
+    count = len(valid_scores)
+    avg = total / count
+    max_score = max(valid_scores)
+    min_score = min(valid_scores)
+    
+    # 计算及格率
+    passed = [s for s in valid_scores if s >= 60]
+    pass_rate = len(passed) / count * 100
+    
+    return {
+        'avg': round(avg, 2),
+        'max': max_score,
+        'min': min_score,
+        'pass_rate': round(pass_rate, 2)
+    }
+```
+
+**逐段分析**：
+
+| 代码行 | 作用 |
+|-------|------|
+| `if not scores:` | 边界处理：空列表返回 None |
+| `[s for s in scores if 0 <= s <= 100]` | 列表推导式：过滤有效成绩 |
+| `sum(valid_scores)` | 内置函数：计算总和 |
+| `round(avg, 2)` | 保留2位小数 |
+
+### 让 AI 解释代码
+
+看不懂的地方，直接问 AI！
+
+**Prompt 示例**：
+```
+解释这行代码的意思：
+valid_scores = [s for s in scores if 0 <= s <= 100]
+```
+
+**AI 回答**：
+> 这是一个列表推导式（list comprehension）。它的作用是：
+> - 遍历 `scores` 列表中的每个元素 `s`
+> - 如果 `s` 在 0 到 100 之间（含边界），就保留
+> - 结果是一个新列表 `valid_scores`
+> 
+> 等价于：
+> ```python
+> valid_scores = []
+> for s in scores:
+>     if 0 <= s <= 100:
+>         valid_scores.append(s)
+> ```
+
+---
+
+## 当 AI 生成错误代码时
+
+### 常见问题类型
+
+| 类型 | 示例 | 如何发现 |
+|-----|------|---------|
+| **语法错误** | 缩进错误、括号不匹配 | 运行直接报错 |
+| **逻辑错误** | 边界条件遗漏 | 测试用例失败 |
+| **类型错误** | 字符串当数字用 | 运行时报错 |
+| **遗漏需求** | 没处理空输入 | 功能不完整 |
+
+### 案例分析：找出这段代码的问题
+
+```{python}
+#| eval: false
+def calculate_average(numbers):
+    total = 0
+    for num in numbers:
+        total += num
+    return total / len(numbers)
+```
+
+**问题**：如果 `numbers` 是空列表，会发生什么？
+
+```{python}
+#| eval: false
+calculate_average([])  # ZeroDivisionError: division by zero
+```
+
+**修复方法**：
+
+```{python}
+#| eval: true
+def calculate_average(numbers):
+    if not numbers:  # 添加边界检查
+        return None
+    total = 0
+    for num in numbers:
+        total += num
+    return total / len(numbers)
+
+print(calculate_average([]))  # None
+print(calculate_average([1, 2, 3]))  # 2.0
+```
+
+---
+
+## 调试技巧：让 AI 帮你找问题
+
+```{mermaid}
+flowchart LR
+    A["🐛 程序出问题"] --> B{"什么类型?"}
+    B -->|报错| C["复制错误信息"]
+    B -->|结果不对| D["记录期望vs实际"]
+    C --> E["发送给 AI"]
+    D --> E
+    E --> F["AI 分析原因"]
+    F --> G["AI 给出修复建议"]
+    G --> H["应用修复"]
+    H --> I["重新测试"]
+    I --> J{"问题解决?"}
+    J -->|否| A
+    J -->|是| K["✅ 完成"]
+```
+
+### 报错信息分析
+
+当代码报错时，把错误信息发给 AI：
+
+**Prompt 模板**：
+```
+这段代码报错了，帮我分析原因：
+
+错误信息：
+[粘贴错误信息]
+
+代码：
+[粘贴代码]
+```
+
+**示例**：
+```
+这段代码报错了，帮我分析原因：
+
+错误信息：
+TypeError: can only concatenate str (not "int") to str
+
+代码：
+name = "张三"
+age = 20
+print("姓名：" + name + "，年龄：" + age)
+```
+
+**AI 回答**：
+> 错误原因：你试图用 `+` 连接字符串和整数，但 Python 不允许这样做。
+> 
+> 修复方法：
+> ```python
+> print("姓名：" + name + "，年龄：" + str(age))  # 转换为字符串
+> # 或者使用 f-string（推荐）
+> print(f"姓名：{name}，年龄：{age}")
+> ```
+
+### 结果不对分析
+
+当代码能运行但结果不对时：
+
+**Prompt 模板**：
+```
+这段代码运行结果不对：
+- 期望输出：xxx
+- 实际输出：xxx
+
+帮我找出问题：
+
+[粘贴代码]
+```
+
+### 常见 Python 错误类型
+
+| 错误 | 说明 | 常见原因 |
+|-----|------|---------|
+| `SyntaxError` | 语法错误 | 括号不匹配、缩进错误 |
+| `NameError` | 名称未定义 | 拼写错误、变量未创建 |
+| `TypeError` | 类型错误 | 字符串和数字混用 |
+| `IndexError` | 索引越界 | 列表访问超出范围 |
+| `KeyError` | 键不存在 | 字典访问不存在的键 |
+| `ZeroDivisionError` | 除以零 | 分母为零 |
+| `FileNotFoundError` | 文件不存在 | 路径错误 |
+
+---
+
+## 实战练习：调试 AI 代码
+
+### 练习 1：找出问题
+
+以下代码有什么问题？
+
+```{python}
+#| eval: false
+def count_passed(scores):
+    count = 0
+    for score in scores:
+        if score > 60:  # 问题在这里
+            count += 1
+    return count
+
+# 测试
+print(count_passed([60, 65, 70]))  # 期望输出 3，实际输出 2
+```
+
+::: {.callout-note collapse="true"}
+## 点击查看答案
+问题：判断条件使用了 `>` 大于号，应该是 `>=`（大于等于）。
+
+60分是及格的，应该被计入，但 `60 > 60` 是 `False`。
+
+修复：`if score >= 60:`
+:::
+
+### 练习 2：修复代码
+
+以下代码在某些情况下会出错：
+
+```{python}
+#| eval: false
+def format_phone(phone):
+    # 去除空格和横线，格式化为 xxx-xxxx-xxxx
+    cleaned = phone.replace(" ", "").replace("-", "")
+    return f"{cleaned[:3]}-{cleaned[3:7]}-{cleaned[7:]}"
+```
+
+思考：什么情况下会出问题？如何修复？
+
+::: {.callout-note collapse="true"}
+## 点击查看答案
+问题：
+1. 如果 `phone` 是 `None`，会报错
+2. 如果清理后不是 11 位，格式化结果会错误
+3. 如果包含非数字字符，结果也会错误
+
+修复版本：
+```python
+def format_phone(phone):
+    if not phone:
+        return None
+    
+    # 只保留数字
+    cleaned = ''.join(c for c in phone if c.isdigit())
+    
+    # 检查长度
+    if len(cleaned) != 11:
+        return None
+    
+    return f"{cleaned[:3]}-{cleaned[3:7]}-{cleaned[7:]}"
+```
+:::
+
+---
+
+## 课后作业
+
+### 作业 1：个人信息卡生成器（本周提交）
+
+**任务**：完成并提交作业 1
+
+**REPORT.md 要求**：
+1. 记录 3 个 AI 生成代码后你发现需要修改的地方
+2. 说明问题是什么、你如何发现的、如何修复的
+
+**示例记录**：
+
+````markdown
+## 问题 1：空字段未处理
+
+### 发现过程
+测试时输入了空的邮箱字段，程序输出了空白行。
+
+### AI 原始代码
+```python
+print(f"邮箱：{email}")
+```
+
+### 问题分析
+当 email 为空字符串时，直接输出看起来不友好。
+
+### 修复后代码
+```python
+print(f"邮箱：{email if email else '未填写'}")
+```
+````
+
+---
+
+## 本章小结
+
+- **能读懂代码**是与 AI 协作的基础能力
+- Python 核心语法包括：变量、列表、字典、条件、循环、函数
+- **阅读策略**：入口点 → 主流程 → 数据流 → 边界处理
+- 遇到不懂的代码，**直接问 AI 解释**
+- 调试时，把**错误信息**和**代码**一起发给 AI
+- **边界情况**是 AI 最容易遗漏的：空输入、无效数据、极端值
+
+下一章，我们将学习如何设计和使用**函数**来组织代码。

@@ -1,0 +1,32 @@
+# manifest.yaml - 运行声明（必填）
+# 评测系统将依次执行下列命令并通过 LLM 打分
+
+project:
+  name: "请填写你的项目名称"
+  description: "一句话介绍项目解决的核心问题"
+
+commands:
+  demo:
+    - command: "python src/main.py --help"
+      description: "显示帮助信息"
+    - command: "python src/main.py demo-1"
+      description: "演示核心功能 1（请替换为真实命令）"
+    - command: "python src/main.py demo-2"
+      description: "演示核心功能 2（需包含 LLM 调用）"
+    - command: "python src/main.py demo-3"
+      description: "演示核心功能 3（含数据流转/导出）"
+
+  error_handling:
+    - command: "python src/main.py invalid-command"
+      description: "无效命令应给出友好提示而非 Traceback"
+    - command: "python src/main.py demo-1 --bad-input"
+      description: "异常/空输入处理"
+
+  # 如果有 Streamlit/Web，请取消注释并填写
+  # web:
+  #   command: "streamlit run app.py --server.headless true"
+  #   port: 8501
+
+env_vars:
+  - DEEPSEEK_API_KEY
+  # 如需其他密钥，请在此列出

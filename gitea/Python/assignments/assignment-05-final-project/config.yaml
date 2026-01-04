@@ -1,0 +1,23 @@
+assignment_id: assignment-05-final-project
+title: "作业 5：期末综合项目"
+description: "完成一个有实际用途的小工具/应用，综合运用整个学期所学技能，必须集成 LLM 功能。"
+due_date: "2025-06-15 23:59:59 +08:00"
+total_score: 25
+grading:
+  enable_llm: true
+  enable_tests: false  # 不使用 pytest，改用 manifest 运行
+  enable_manifest: true
+  groups:
+    documentation:
+      description: "文档质量：REPORT.md 反思报告 + CHANGELOG.md 版本记录"
+      weight: 0.32
+      max_score: 8
+    functionality:
+      description: "功能表现：核心功能、LLM 集成、错误处理、用户体验"
+      weight: 0.48
+      max_score: 12
+    code_quality:
+      description: "代码质量：结构、可读性、安全性"
+      weight: 0.20
+      max_score: 5
+

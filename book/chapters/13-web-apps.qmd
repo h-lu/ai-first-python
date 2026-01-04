@@ -1,0 +1,502 @@
+# Web 应用开发 {#sec-web-apps}
+
+::: {.callout-note}
+## 本章概要
+- **课时**：2课时（第13周）
+- **目标**：用 Streamlit 快速构建 Web 界面
+:::
+
+## 学习目标
+
+完成本章后，你将能够：
+
+1. 使用 Streamlit 构建 Web 应用
+2. 创建交互式数据可视化界面
+3. 为 AI 应用添加聊天界面
+4. 了解应用部署基础
+
+---
+
+## 为什么选择 Streamlit？
+
+```{mermaid}
+flowchart LR
+    subgraph "传统 Web 开发"
+        A1["学习 HTML/CSS/JS"] --> A2["学习后端框架"]
+        A2 --> A3["数周开发"]
+    end
+    
+    subgraph "Streamlit"
+        B1["写 Python"] --> B2["几分钟完成"]
+    end
+    
+    style B1 fill:#e8f5e9
+    style B2 fill:#e8f5e9
+```
+
+| 场景 | 传统开发 | Streamlit |
+|-----|---------|-----------|
+| 数据仪表板 | 需要前后端配合 | 几十行 Python |
+| AI 原型 | 复杂的接口设计 | 内置 chat 组件 |
+| 内部工具 | 完整开发流程 | 快速迭代 |
+
+---
+
+## 快速入门
+
+### 安装
+
+```bash
+pip install streamlit
+```
+
+### Hello World
+
+创建 `app.py`：
+
+```{python}
+#| eval: false
+import streamlit as st
+
+st.title("我的第一个 Streamlit 应用")
+st.write("Hello, World! 👋")
+
+# 显示 Markdown
+st.markdown("""
+## 这是二级标题
+- 支持 **粗体**
+- 支持 *斜体*
+- 支持 `代码`
+""")
+```
+
+运行：
+
+```bash
+streamlit run app.py
+```
+
+---
+
+## 常用组件
+
+### 输入组件
+
+```{python}
+#| eval: false
+import streamlit as st
+
+# 文本输入
+name = st.text_input("请输入姓名")
+
+# 数字输入
+age = st.number_input("请输入年龄", min_value=0, max_value=150)
+
+# 滑块
+score = st.slider("选择分数", 0, 100, 60)
+
+# 下拉选择
+option = st.selectbox("选择城市", ["北京", "上海", "广州", "深圳"])
+
+# 多选
+hobbies = st.multiselect("选择爱好", ["读书", "运动", "音乐", "旅行"])
+
+# 按钮
+if st.button("提交"):
+    st.write(f"你好，{name}！")
+```
+
+### 布局组件
+
+```{python}
+#| eval: false
+import streamlit as st
+
+# 侧边栏
+with st.sidebar:
+    st.title("设置")
+    option = st.radio("选择模式", ["模式A", "模式B"])
+
+# 列布局
+col1, col2 = st.columns(2)
+with col1:
+    st.header("左边")
+    st.write("内容...")
+with col2:
+    st.header("右边")
+    st.write("内容...")
+
+# 展开/折叠
+with st.expander("点击展开详情"):
+    st.write("这是隐藏的内容")
+
+# 标签页
+tab1, tab2 = st.tabs(["数据", "图表"])
+with tab1:
+    st.write("数据内容")
+with tab2:
+    st.write("图表内容")
+```
+
+### 显示组件
+
+```{mermaid}
+mindmap
+  root((Streamlit 组件))
+    输入
+      text_input
+      number_input
+      slider
+      selectbox
+      button
+    布局
+      sidebar
+      columns
+      tabs
+      expander
+    显示
+      write
+      markdown
+      dataframe
+      pyplot
+      chat_message
+```
+
+---
+
+## 实战：数据可视化仪表板
+
+```{python}
+#| eval: false
+import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+
+st.title("📊 数据分析仪表板")
+
+# 侧边栏：文件上传
+with st.sidebar:
+    st.header("数据设置")
+    uploaded_file = st.file_uploader("上传 CSV 文件", type=['csv'])
+    
+    if uploaded_file:
+        df = pd.read_csv(uploaded_file)
+    else:
+        # 演示数据
+        np.random.seed(42)
+        df = pd.DataFrame({
+            '姓名': [f'学生{i}' for i in range(1, 31)],
+            '语文': np.random.randint(50, 100, 30),
+            '数学': np.random.randint(50, 100, 30),
+            '英语': np.random.randint(50, 100, 30)
+        })
+        st.info("使用演示数据")
+
+# 主页面
+st.header("数据预览")
+st.dataframe(df.head(10))
+
+# 统计信息
+st.header("统计摘要")
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.metric("行数", len(df))
+with col2:
+    st.metric("列数", len(df.columns))
+with col3:
+    if '语文' in df.columns:
+        st.metric("语文平均分", f"{df['语文'].mean():.1f}")
+
+# 可视化
+st.header("数据可视化")
+
+# 选择列
+numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+selected_col = st.selectbox("选择要分析的列", numeric_cols)
+
+# 绑制图表
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+
+axes[0].hist(df[selected_col], bins=10, color='steelblue', edgecolor='white')
+axes[0].set_title(f'{selected_col} 分布')
+axes[0].set_xlabel(selected_col)
+axes[0].set_ylabel('频数')
+
+if len(numeric_cols) >= 2:
+    axes[1].scatter(df[numeric_cols[0]], df[numeric_cols[1]], alpha=0.6)
+    axes[1].set_title(f'{numeric_cols[0]} vs {numeric_cols[1]}')
+    axes[1].set_xlabel(numeric_cols[0])
+    axes[1].set_ylabel(numeric_cols[1])
+
+st.pyplot(fig)
+```
+
+---
+
+## 实战：AI 聊天界面
+
+### 基础聊天界面（使用 OpenAI 库）
+
+```{python}
+#| eval: false
+import streamlit as st
+from openai import OpenAI
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+st.title("🤖 AI 聊天助手")
+
+# 初始化 OpenAI 客户端
+@st.cache_resource
+def get_client():
+    return OpenAI(
+        api_key=os.getenv("DEEPSEEK_API_KEY"),
+        base_url="https://api.deepseek.com"
+    )
+
+client = get_client()
+
+# 初始化聊天历史
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# 显示历史消息
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+# 用户输入
+if prompt := st.chat_input("请输入消息..."):
+    # 显示用户消息
+    with st.chat_message("user"):
+        st.markdown(prompt)
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    
+    # 调用 AI 获取回复
+    with st.chat_message("assistant"):
+        with st.spinner("思考中..."):
+            response = client.chat.completions.create(
+                model="deepseek-chat",
+                messages=[
+                    {"role": "system", "content": "你是一个有帮助的助手"}
+                ] + st.session_state.messages
+            )
+            reply = response.choices[0].message.content
+            st.markdown(reply)
+    
+    st.session_state.messages.append({"role": "assistant", "content": reply})
+```
+
+### 带流式输出的完整版
+
+```{python}
+#| eval: false
+import streamlit as st
+from openai import OpenAI
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+st.set_page_config(page_title="AI 助手", page_icon="🤖")
+
+# 初始化客户端
+@st.cache_resource
+def get_client():
+    return OpenAI(
+        api_key=os.getenv("DEEPSEEK_API_KEY"),
+        base_url="https://api.deepseek.com"
+    )
+
+client = get_client()
+
+# 侧边栏设置
+with st.sidebar:
+    st.title("⚙️ 设置")
+    
+    # System Prompt 设置
+    system_prompt = st.text_area(
+        "System Prompt",
+        value="你是一个友好的中文助手。",
+        height=100
+    )
+    
+    # 温度参数
+    temperature = st.slider("创造性 (Temperature)", 0.0, 1.0, 0.7)
+    
+    # 清空对话按钮
+    if st.button("🗑️ 清空对话"):
+        st.session_state.messages = []
+        st.rerun()
+    
+    st.divider()
+    
+    with st.expander("📖 使用说明"):
+        st.markdown("""
+        1. 在输入框输入问题
+        2. 支持流式输出，实时显示回复
+        3. 调整侧边栏设置可改变 AI 行为
+        """)
+
+# 主界面
+st.title("🤖 智能对话助手")
+
+# 初始化聊天历史
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# 显示历史消息
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+# 用户输入
+if prompt := st.chat_input("请输入消息..."):
+    # 显示用户消息
+    with st.chat_message("user"):
+        st.markdown(prompt)
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    
+    # 流式输出 AI 回复
+    with st.chat_message("assistant"):
+        # 创建占位符用于流式更新
+        message_placeholder = st.empty()
+        full_response = ""
+        
+        # 流式调用
+        stream = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {"role": "system", "content": system_prompt}
+            ] + st.session_state.messages,
+            temperature=temperature,
+            stream=True
+        )
+        
+        for chunk in stream:
+            if chunk.choices[0].delta.content:
+                full_response += chunk.choices[0].delta.content
+                message_placeholder.markdown(full_response + "▌")
+        
+        message_placeholder.markdown(full_response)
+    
+    st.session_state.messages.append({"role": "assistant", "content": full_response})
+```
+
+---
+
+## Session State 详解
+
+### 为什么需要 Session State？
+
+```{mermaid}
+flowchart TD
+    A["用户交互"] --> B["页面刷新"]
+    B --> C{"有 Session State?"}
+    C -->|是| D["数据保留"]
+    C -->|否| E["数据丢失"]
+```
+
+### 常用模式
+
+```{python}
+#| eval: false
+import streamlit as st
+
+# 初始化
+if "count" not in st.session_state:
+    st.session_state.count = 0
+
+# 使用
+st.write(f"计数: {st.session_state.count}")
+
+# 更新
+if st.button("点击+1"):
+    st.session_state.count += 1
+    st.rerun()  # 刷新页面
+
+# 删除
+if st.button("重置"):
+    del st.session_state.count
+    st.rerun()
+```
+
+---
+
+## 部署应用
+
+### Streamlit Cloud（推荐）
+
+1. 将代码推送到 GitHub
+2. 创建 `requirements.txt`
+3. 访问 [share.streamlit.io](https://share.streamlit.io)
+4. 连接仓库并部署
+
+**requirements.txt 示例**：
+
+```
+streamlit
+pandas
+matplotlib
+openai
+python-dotenv
+```
+
+### 环境变量配置
+
+在 Streamlit Cloud 中：
+1. 进入应用设置
+2. 添加 Secrets
+3. 格式：`DEEPSEEK_API_KEY = "your-key"`
+
+代码中读取：
+```python
+api_key = st.secrets["DEEPSEEK_API_KEY"]
+```
+
+---
+
+## 课后作业
+
+### 作业 5 继续：添加 Web 界面
+
+**本周任务**：
+
+1. 为期末项目添加 Streamlit 界面
+2. 至少包含：
+   - 用户输入区域
+   - 结果显示区域
+   - 侧边栏设置（可选）
+
+**推荐结构**：
+
+```
+project/
+├── app.py           # Streamlit 入口
+├── core.py          # 核心逻辑
+├── requirements.txt # 依赖
+└── .env             # API Keys（不提交）
+```
+
+---
+
+## 本章小结
+
+- **Streamlit** 让 Python 开发者快速构建 Web 应用
+- **核心概念**：组件、布局、Session State
+- **常用组件**：input、button、dataframe、chat_message
+- **部署**：Streamlit Cloud 免费托管
+
+```{mermaid}
+flowchart LR
+    A["Python 脚本"] --> B["添加 Streamlit"]
+    B --> C["本地测试"]
+    C --> D["推送 GitHub"]
+    D --> E["Streamlit Cloud"]
+    E --> F["分享链接"]
+```
+
+下一章，我们将进入 **综合项目开发**——整合所学，完成一个完整的项目。

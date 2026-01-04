@@ -1,0 +1,532 @@
+# API 基础与 LLM 入门 {#sec-api}
+
+::: {.callout-note}
+## 本章概要
+- **课时**：2课时（第11周）
+- **目标**：掌握 API 调用基础，初步体验 LLM API
+:::
+
+## 学习目标
+
+完成本章后，你将能够：
+
+1. 理解 API 和 HTTP 基础
+2. 使用 requests 库调用公开 API
+3. 初步体验 LLM API 调用
+
+---
+
+## 第四阶段导引
+
+```{mermaid}
+flowchart LR
+    subgraph "第三阶段（已完成）"
+        A["本地数据处理"]
+    end
+    
+    subgraph "第四阶段（开始）"
+        B["API 调用"] --> C["LLM 应用"]
+        C --> D["Web 开发"]
+        D --> E["综合项目"]
+    end
+    
+    A --> B
+    
+    style B fill:#e3f2fd
+```
+
+从本章开始，我们进入 **AI 应用与综合项目** 阶段。首先需要掌握 **API 调用**——这是与外部服务（包括 AI 服务）交互的基础技能。
+
+---
+
+## 什么是 API？
+
+### API 基本概念
+
+```{mermaid}
+flowchart LR
+    A["你的程序"] -->|"请求 (Request)"| B["服务器 API"]
+    B -->|"响应 (Response)"| A
+    
+    C["天气查询"] --> D["发送：查询北京天气"]
+    D --> E["返回：晴，25°C"]
+    
+    F["AI 对话"] --> G["发送：帮我写代码"]
+    G --> H["返回：def hello()..."]
+```
+
+**API**（Application Programming Interface）是程序之间通信的接口：
+
+| 概念 | 类比 | 说明 |
+|-----|------|------|
+| API | 餐厅菜单 | 定义了可以请求什么服务 |
+| 请求 | 点菜 | 告诉服务器你想要什么 |
+| 响应 | 上菜 | 服务器返回的数据 |
+| JSON | 标准餐盘 | 数据的标准格式 |
+
+### HTTP 请求方法
+
+| 方法 | 用途 | 例子 |
+|-----|------|------|
+| **GET** | 获取数据 | 查询天气、获取用户信息 |
+| **POST** | 提交数据 | 发送聊天消息、创建用户 |
+
+::: {.callout-tip}
+## 初学者只需关注 GET 和 POST
+- **GET**：获取数据（如查询天气）
+- **POST**：发送数据（如调用 LLM）
+:::
+
+---
+
+## requests 库基础
+
+### 安装
+
+```bash
+pip install requests
+```
+
+### 发送 GET 请求
+
+```{python}
+#| eval: true
+import requests
+
+# 获取公开 API 数据
+response = requests.get("https://httpbin.org/get")
+
+# 检查状态码
+print(f"状态码: {response.status_code}")
+
+# 获取 JSON 数据
+if response.status_code == 200:
+    data = response.json()
+    print(f"返回数据类型: {type(data)}")
+    print(f"请求 URL: {data.get('url')}")
+```
+
+### 带参数的请求
+
+```{python}
+#| eval: true
+import requests
+
+# 使用 params 参数（推荐）
+params = {
+    "name": "张三",
+    "age": 20,
+    "city": "北京"
+}
+response = requests.get("https://httpbin.org/get", params=params)
+
+data = response.json()
+print("发送的参数:")
+print(data.get('args'))
+```
+
+### 发送 POST 请求
+
+```{python}
+#| eval: true
+import requests
+
+# 发送 JSON 数据
+payload = {
+    "username": "zhangsan",
+    "email": "zhangsan@example.com"
+}
+
+response = requests.post("https://httpbin.org/post", json=payload)
+
+if response.status_code == 200:
+    data = response.json()
+    print("服务器收到的数据:")
+    print(data.get('json'))
+```
+
+---
+
+## 处理 API 响应
+
+### 响应状态码
+
+```{mermaid}
+flowchart TD
+    A["HTTP 状态码"] --> B["2xx 成功"]
+    A --> C["4xx 客户端错误"]
+    A --> D["5xx 服务器错误"]
+    
+    B --> B1["200 OK"]
+    C --> C1["401 Unauthorized"]
+    C --> C2["404 Not Found"]
+    C --> C3["429 Too Many Requests"]
+    D --> D1["500 Server Error"]
+```
+
+| 状态码 | 含义 | 处理方式 |
+|-------|------|---------|
+| 200 | 成功 | 正常处理响应 |
+| 401 | 未授权 | 检查 API Key |
+| 404 | 资源不存在 | 检查 URL |
+| 429 | 请求过多 | 等待后重试 |
+| 500 | 服务器错误 | 稍后重试 |
+
+### 安全的 API 调用函数
+
+```{python}
+#| eval: true
+import requests
+
+def safe_api_call(url, params=None):
+    """安全的 API 调用函数"""
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        
+        if response.status_code == 200:
+            return {"success": True, "data": response.json()}
+        elif response.status_code == 404:
+            return {"success": False, "error": "资源不存在"}
+        elif response.status_code == 401:
+            return {"success": False, "error": "未授权，请检查 API Key"}
+        else:
+            return {"success": False, "error": f"HTTP {response.status_code}"}
+            
+    except requests.exceptions.Timeout:
+        return {"success": False, "error": "请求超时"}
+    except requests.exceptions.ConnectionError:
+        return {"success": False, "error": "网络连接失败"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+# 测试
+result = safe_api_call("https://httpbin.org/get", {"test": "hello"})
+print(result)
+```
+
+---
+
+## 实战：调用公开 API
+
+### GitHub API 示例
+
+```{python}
+#| eval: true
+import requests
+
+def get_github_repo_info(owner, repo):
+    """获取 GitHub 仓库信息"""
+    url = f"https://api.github.com/repos/{owner}/{repo}"
+    
+    try:
+        response = requests.get(url, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            return {
+                "名称": data['full_name'],
+                "描述": data['description'][:50] + "..." if data['description'] else "无",
+                "Stars": data['stargazers_count'],
+                "语言": data['language']
+            }
+        else:
+            return {"error": f"HTTP {response.status_code}"}
+            
+    except Exception as e:
+        return {"error": str(e)}
+
+# 获取 Python 仓库信息
+info = get_github_repo_info("python", "cpython")
+for key, value in info.items():
+    print(f"{key}: {value}")
+```
+
+---
+
+## LLM API 入门
+
+### 为什么需要 LLM API？
+
+```{mermaid}
+flowchart LR
+    A["你的应用"] -->|"发送 Prompt"| B["LLM API"]
+    B -->|"返回生成文本"| A
+    
+    C["聊天机器人"] --> D["发送用户问题"]
+    D --> E["返回 AI 回答"]
+```
+
+**应用场景**：
+- 智能客服
+- 代码助手
+- 内容生成
+- 数据分析
+
+### API Key 安全管理
+
+::: {.callout-warning}
+## 永远不要在代码中硬编码 API Key！
+- ❌ 不要写 `api_key = "sk-xxxx"`
+- ✅ 使用环境变量或 .env 文件
+- ✅ 不要将 Key 提交到 Git
+:::
+
+**使用 .env 文件**：
+
+```{python}
+#| eval: false
+# 1. 创建 .env 文件
+# DEEPSEEK_API_KEY=your-api-key-here
+
+# 2. 安装依赖
+# pip install python-dotenv openai
+
+# 3. 在代码中加载
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+API_KEY = os.getenv("DEEPSEEK_API_KEY")
+```
+
+---
+
+## 方法一：使用 requests 库
+
+### 直接调用 API
+
+```{python}
+#| eval: false
+import requests
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+def chat_with_requests(message):
+    """使用 requests 调用 DeepSeek API"""
+    url = "https://api.deepseek.com/chat/completions"
+    
+    headers = {
+        "Authorization": f"Bearer {os.getenv('DEEPSEEK_API_KEY')}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [
+            {"role": "user", "content": message}
+        ]
+    }
+    
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        
+        if response.status_code == 200:
+            data = response.json()
+            return data['choices'][0]['message']['content']
+        else:
+            return f"错误: HTTP {response.status_code}"
+            
+    except Exception as e:
+        return f"错误: {e}"
+
+# 使用示例
+# reply = chat_with_requests("用一句话解释什么是API")
+# print(reply)
+```
+
+---
+
+## 方法二：使用 OpenAI 库（推荐）
+
+### 安装 OpenAI 库
+
+```bash
+pip install openai
+```
+
+### 调用 DeepSeek（OpenAI 兼容）
+
+DeepSeek API 与 OpenAI API 完全兼容，只需修改 `base_url`：
+
+```{python}
+#| eval: false
+from openai import OpenAI
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# 创建客户端，指向 DeepSeek
+client = OpenAI(
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
+    base_url="https://api.deepseek.com"
+)
+
+def chat_with_openai(message):
+    """使用 OpenAI 库调用 DeepSeek API"""
+    try:
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {"role": "user", "content": message}
+            ]
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"错误: {e}"
+
+# 使用示例
+# reply = chat_with_openai("用一句话解释什么是API")
+# print(reply)
+```
+
+### 带 System Prompt 的调用
+
+```{python}
+#| eval: false
+from openai import OpenAI
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+client = OpenAI(
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
+    base_url="https://api.deepseek.com"
+)
+
+def chat_with_system_prompt(message, system_prompt="你是一个有帮助的助手"):
+    """带系统提示的对话"""
+    response = client.chat.completions.create(
+        model="deepseek-chat",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": message}
+        ],
+        temperature=0.7  # 控制创造性，0-2
+    )
+    return response.choices[0].message.content
+
+# 使用示例
+# reply = chat_with_system_prompt(
+#     "写一句励志的话",
+#     system_prompt="你是一个充满正能量的心理咨询师"
+# )
+# print(reply)
+```
+
+---
+
+## requests vs OpenAI 库对比
+
+```{mermaid}
+flowchart TD
+    subgraph "requests 方式"
+        R1["手动构建 headers"]
+        R2["手动构建 payload"]
+        R3["手动解析 JSON"]
+    end
+    
+    subgraph "OpenAI 库"
+        O1["自动处理认证"]
+        O2["类型提示支持"]
+        O3["内置重试机制"]
+    end
+```
+
+| 特性 | requests | OpenAI 库 |
+|-----|----------|----------|
+| **安装依赖** | 已内置 | 需安装 `openai` |
+| **代码量** | 较多 | 简洁 |
+| **类型提示** | 无 | ✅ 完善 |
+| **自动重试** | 需手动实现 | ✅ 内置 |
+| **流式输出** | 较复杂 | ✅ 简单 |
+| **错误处理** | 需手动 | ✅ 异常类型清晰 |
+| **切换模型** | 改 URL | 改 `base_url` |
+| **学习价值** | 理解 HTTP 原理 | 更接近生产代码 |
+
+::: {.callout-tip}
+## 推荐使用 OpenAI 库
+OpenAI 库是业界标准，DeepSeek、通义千问等国产模型都兼容 OpenAI 格式。
+掌握 OpenAI 库 = 掌握了调用大多数 LLM 的方法。
+:::
+
+---
+
+## 切换不同的 LLM 服务
+
+OpenAI 库的优势：只需修改 `base_url` 和 `api_key`，代码逻辑完全不变：
+
+```{python}
+#| eval: false
+from openai import OpenAI
+import os
+
+# DeepSeek
+deepseek_client = OpenAI(
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
+    base_url="https://api.deepseek.com"
+)
+
+# 通义千问 (Qwen)
+qwen_client = OpenAI(
+    api_key=os.getenv("DASHSCOPE_API_KEY"),
+    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
+)
+
+# OpenAI (官方)
+openai_client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY")
+    # 不需要 base_url，默认就是 OpenAI
+)
+
+# 调用方式完全相同！
+def chat(client, model, message):
+    response = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": message}]
+    )
+    return response.choices[0].message.content
+```
+
+---
+
+## 课后作业
+
+### 期末项目准备
+
+**本周任务**：选题与 API 调研
+
+1. 确定期末项目主题
+2. 注册 DeepSeek API 账号
+3. 使用 OpenAI 库完成一次 API 调用
+4. 测试 System Prompt 效果
+
+**选题建议**：
+- 💬 智能问答助手
+- 📊 数据分析报告生成器
+- 🌤️ 天气播报机器人
+- 📝 文章摘要工具
+
+---
+
+## 本章小结
+
+- **API** 是程序间通信的接口，通过 HTTP 请求交互
+- **requests** 库适合理解原理，**OpenAI** 库更适合生产使用
+- **OpenAI 库优势**：简洁、类型安全、内置重试、易切换模型
+- **API Key** 要安全存储，使用环境变量
+- **DeepSeek/通义千问** 都兼容 OpenAI 格式
+
+```{mermaid}
+flowchart LR
+    A["本章：API 基础"] --> B["下章：LLM 高级应用"]
+    B --> C["多轮对话"]
+    B --> D["Prompt 工程"]
+    B --> E["流式输出"]
+```
+
+下一章，我们将深入学习 **LLM 高级应用**——多轮对话与 Prompt 工程。
+

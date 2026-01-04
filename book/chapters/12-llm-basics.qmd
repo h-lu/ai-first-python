@@ -1,0 +1,609 @@
+# LLM 应用开发 {#sec-llm}
+
+::: {.callout-note}
+## 本章概要
+- **课时**：2课时（第12周）
+- **目标**：深入 LLM API 使用，掌握 Prompt Engineering
+:::
+
+## 学习目标
+
+完成本章后，你将能够：
+
+1. 使用 OpenAI 库实现多轮对话
+2. 设计有效的 System Prompt
+3. 应用 Prompt Engineering 技巧
+4. 实现流式输出
+
+---
+
+## 从单轮到多轮对话
+
+### 对话历史的重要性
+
+```{mermaid}
+flowchart TD
+    A["用户: 我叫张三"] --> B["AI: 你好张三！"]
+    B --> C["用户: 我今年20岁"]
+    C --> D["AI: 了解，20岁很年轻"]
+    D --> E["用户: 我是谁？"]
+    E --> F{"有对话历史?"}
+    F -->|有| G["AI: 你是张三，20岁"]
+    F -->|无| H["AI: 我不知道你是谁"]
+```
+
+### 使用 OpenAI 库实现多轮对话
+
+```{python}
+#| eval: false
+from openai import OpenAI
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class ChatBot:
+    """使用 OpenAI 库的多轮对话机器人"""
+    
+    def __init__(self, system_prompt="你是一个有帮助的助手。"):
+        self.client = OpenAI(
+            api_key=os.getenv("DEEPSEEK_API_KEY"),
+            base_url="https://api.deepseek.com"
+        )
+        self.model = "deepseek-chat"
+        self.messages = [
+            {"role": "system", "content": system_prompt}
+        ]
+    
+    def chat(self, user_message):
+        """发送消息并获取回复"""
+        # 添加用户消息到历史
+        self.messages.append({"role": "user", "content": user_message})
+        
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=self.messages
+            )
+            
+            reply = response.choices[0].message.content
+            # 添加助手回复到历史
+            self.messages.append({"role": "assistant", "content": reply})
+            return reply
+            
+        except Exception as e:
+            return f"错误: {e}"
+    
+    def clear_history(self):
+        """清空对话历史，保留 system prompt"""
+        self.messages = self.messages[:1]
+
+# 使用示例
+# bot = ChatBot("你是一个友好的中文助手")
+# print(bot.chat("我叫小明"))
+# print(bot.chat("我刚才说我叫什么？"))
+```
+
+### 对话历史管理
+
+```{mermaid}
+flowchart LR
+    A["messages 列表"] --> B["system: 角色设定"]
+    B --> C["user: 消息1"]
+    C --> D["assistant: 回复1"]
+    D --> E["user: 消息2"]
+    E --> F["assistant: 回复2"]
+    F --> G["..."]
+```
+
+::: {.callout-warning}
+## 注意上下文长度限制
+
+**多轮对话的本质**：LLM 本身是**无状态的**，每次 API 调用都是独立的。所谓"多轮对话"，实际上是把**完整的对话历史**（所有之前的问答）加上最新输入，一起发送给模型。模型根据这份完整上下文生成回复。
+
+**问题**：随着对话轮次增加，`messages` 列表越来越长，可能超出模型的上下文窗口（如 GPT-3.5 是 4K/16K tokens）。
+
+**常见解决策略**：
+
+| 策略 | 做法 | 适用场景 |
+|------|------|----------|
+| **滑动窗口** | 只保留最近 N 轮对话 | 休闲聊天，不依赖早期信息 |
+| **Token 截断** | 用 `tiktoken` 计算 token 数，超限时删除最早对话 | 需要精确控制成本 |
+| **历史总结** | 用 LLM 总结早期对话，压缩为一条 system 消息 | 长任务对话，需保留关键信息 |
+
+示例（滑动窗口）：
+
+```python
+def sliding_window(messages, max_turns=5):
+    system_msg = [m for m in messages if m["role"] == "system"]
+    conversation = [m for m in messages if m["role"] != "system"]
+    return system_msg + conversation[-(max_turns * 2):]  # 保留最近 N 轮
+```
+:::
+
+---
+
+## System Prompt 设计
+
+### 角色定义模板
+
+```{python}
+#| eval: false
+# System Prompt 示例
+
+# 1. 通用助手
+GENERAL_ASSISTANT = """
+你是一个友好、专业的中文助手。
+- 回答简洁明了
+- 必要时使用列表和表格
+- 不确定的内容请说明
+"""
+
+# 2. 代码助手
+CODE_ASSISTANT = """
+你是一个 Python 编程助手。
+
+你的任务：
+- 帮助用户解决编程问题
+- 提供代码示例
+- 解释代码原理
+
+规则：
+- 代码使用 Python 3.10+ 语法
+- 添加必要的注释
+- 优先使用标准库
+"""
+
+# 3. 特定领域专家
+DOMAIN_EXPERT = """
+你是一个数据分析专家，精通：
+- Pandas 数据处理
+- Matplotlib 可视化
+- 统计分析方法
+
+回答风格：
+- 先给出简短答案
+- 再解释原理
+- 最后给出代码示例
+"""
+```
+
+### 好的 System Prompt 特征
+
+| 特征 | 说明 | 示例 |
+|-----|------|------|
+| **明确角色** | 定义 AI 是谁 | "你是一个 Python 导师" |
+| **任务边界** | 能做什么，不能做什么 | "只回答编程问题" |
+| **输出格式** | 期望的回答格式 | "使用 Markdown 格式" |
+| **语言风格** | 正式/友好/专业 | "用简单易懂的语言" |
+
+---
+
+## Prompt Engineering 技巧
+
+### Few-shot Prompting
+
+```{mermaid}
+flowchart LR
+    A["Few-shot"] --> B["提供示例"]
+    B --> C["引导格式"]
+    C --> D["稳定输出"]
+```
+
+```{python}
+#| eval: false
+from openai import OpenAI
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+client = OpenAI(
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
+    base_url="https://api.deepseek.com"
+)
+
+# Few-shot 示例：情感分析
+FEW_SHOT_PROMPT = """
+分析以下文本的情感（正面/负面/中性）。
+
+示例：
+文本：这个产品太棒了，强烈推荐！
+情感：正面
+
+文本：质量一般，没什么特别的
+情感：中性
+
+文本：非常失望，完全不值这个价格
+情感：负面
+
+现在分析：
+文本：{user_input}
+情感：
+"""
+
+def analyze_sentiment(text):
+    """使用 Few-shot 进行情感分析"""
+    prompt = FEW_SHOT_PROMPT.format(user_input=text)
+    
+    response = client.chat.completions.create(
+        model="deepseek-chat",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0  # 降低随机性
+    )
+    return response.choices[0].message.content
+
+# 使用示例
+# result = analyze_sentiment("服务态度很好，下次还会再来")
+# print(result)  # 输出：正面
+```
+
+### 思维链提示（Chain of Thought）
+
+```{python}
+#| eval: false
+from openai import OpenAI
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+client = OpenAI(
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
+    base_url="https://api.deepseek.com"
+)
+
+# 思维链提示：让 AI 展示推理过程
+COT_PROMPT = """
+请一步步思考并解决这个问题：
+
+问题：小明有 15 个苹果，给了小红 3 个，又买了 7 个，最后还剩多少？
+
+让我们一步步分析：
+1. 初始数量：15 个
+2. 给出后：15 - 3 = 12 个
+3. 购买后：12 + 7 = 19 个
+
+答案：19 个
+
+---
+
+现在请用同样的方法解决：
+问题：{problem}
+
+让我们一步步分析：
+"""
+
+def solve_with_cot(problem):
+    """使用思维链解决问题"""
+    prompt = COT_PROMPT.format(problem=problem)
+    
+    response = client.chat.completions.create(
+        model="deepseek-chat",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message.content
+
+# 使用示例
+# result = solve_with_cot("一个水池有 100 升水，漏掉了 25 升，又加了 40 升，现在有多少升？")
+# print(result)
+```
+
+
+### 结构化输出（JSON 模式）
+
+DeepSeek 提供了 [JSON Output](https://api-docs.deepseek.com/zh-cn/guides/json_mode) 功能，通过 `response_format` 参数确保模型输出合法的 JSON 字符串。
+
+::: {.callout-note}
+## JSON 模式注意事项
+1. 设置 `response_format={'type': 'json_object'}`
+2. prompt 中**必须包含 `json` 字样**，并给出期望的 JSON 格式样例
+3. 合理设置 `max_tokens`，防止 JSON 被截断
+:::
+
+```{python}
+#| eval: false
+from openai import OpenAI
+import json
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+client = OpenAI(
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
+    base_url="https://api.deepseek.com"
+)
+
+def extract_info(review):
+    """从评论中提取结构化信息（使用 JSON 模式）"""
+    
+    # System prompt 中给出 JSON 格式样例
+    system_prompt = """你是一个评论分析助手。请分析用户评论并以 JSON 格式输出。
+
+规则：
+- sentiment 只能是以下三种之一：positive、negative、neutral
+
+输出格式示例：
+{
+    "sentiment": "positive",
+    "keywords": ["质量好", "推荐"],
+    "summary": "用户对产品满意"
+}"""
+    
+    response = client.chat.completions.create(
+        model="deepseek-chat",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"请分析这条评论：{review}"}
+        ],
+        response_format={"type": "json_object"},  # 启用 JSON 模式
+        temperature=0
+    )
+    
+    # 直接解析 JSON（JSON 模式保证输出合法 JSON）
+    return json.loads(response.choices[0].message.content)
+
+# 使用示例
+# result = extract_info("手机很好用，拍照清晰，就是电池不太耐用")
+# print(result)
+# 输出: {'sentiment': 'positive', 'keywords': ['手机好用', '拍照清晰', '电池不耐用'], 'summary': '用户总体上对手机满意，称赞其好用和拍照清晰，但指出电池续航不足。'}
+```
+
+::: {.callout-important}
+## Prompt 限制 ≠ 保证成功
+即使在 prompt 中要求 `sentiment` 只能是三种值，LLM 仍可能输出其他值（如 `"mixed"`）。这是因为 LLM 本质上是概率生成，无法 100% 遵守指令。
+
+**Instructor 的解决方案**：使用 Pydantic 的 `Literal` 类型在**代码层面**强制校验，若输出不符合则自动重试（`max_retries`），从根本上保证输出符合预期。
+:::
+
+::: {.callout-tip}
+## 进阶：使用 Instructor 库处理复杂 JSON
+对于**复杂嵌套结构**或需要**严格类型校验**的场景，推荐使用 [instructor](https://github.com/instructor-ai/instructor) 库。它结合 Pydantic 模型，提供自动验证和失败重试：
+
+```python
+import instructor
+from openai import OpenAI
+from pydantic import BaseModel
+from typing import Literal
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# 使用 Pydantic 定义输出结构（带类型约束）
+class ReviewAnalysis(BaseModel):
+    sentiment: Literal["positive", "negative", "neutral"]  # 严格限制取值
+    keywords: list[str]
+    summary: str
+
+# 用 instructor 包装 OpenAI 客户端
+client = instructor.from_openai(
+    OpenAI(
+        api_key=os.getenv("DEEPSEEK_API_KEY"),
+        base_url="https://api.deepseek.com"
+    )
+)
+
+# 直接返回 Pydantic 对象，自动验证
+result = client.chat.completions.create(
+    model="deepseek-chat",
+    response_model=ReviewAnalysis,  # 指定输出模型
+    messages=[{"role": "user", "content": "分析评论：手机很好用，拍照清晰，就是电池不太耐用"}],
+    temperature=0,   # 稳定输出
+    max_retries=3    # 验证失败时自动重试
+)
+
+print(result.sentiment)  # positive
+print(result.keywords)   # ['拍照清晰', '电池不太耐用']
+print(result.summary)    # 用户整体满意，但对电池续航有所不满
+```
+:::
+
+---
+
+## 实战：智能问答助手
+
+### 使用 OpenAI 库的完整实现
+
+```{python}
+#| eval: false
+from openai import OpenAI
+import os
+import json
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class SmartAssistant:
+    """智能问答助手（使用 OpenAI 库）"""
+    
+    def __init__(self, specialty="通用"):
+        self.client = OpenAI(
+            api_key=os.getenv("DEEPSEEK_API_KEY"),
+            base_url="https://api.deepseek.com"
+        )
+        self.model = "deepseek-chat"
+        
+        self.system_prompt = f"""
+你是一个{specialty}领域的智能助手。
+
+回答原则：
+1. 先给出简短答案
+2. 再详细解释
+3. 必要时举例说明
+4. 不确定的内容请说明
+
+输出格式：
+- 使用 Markdown 格式
+- 代码使用代码块
+- 重点内容加粗
+"""
+        
+        self.messages = [
+            {"role": "system", "content": self.system_prompt}
+        ]
+    
+    def ask(self, question):
+        """提问"""
+        self.messages.append({"role": "user", "content": question})
+        
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=self.messages,
+                temperature=0.7
+            )
+            
+            reply = response.choices[0].message.content
+            self.messages.append({"role": "assistant", "content": reply})
+            return reply
+            
+        except Exception as e:
+            return f"请求失败: {e}"
+    
+    def save_conversation(self, filename):
+        """保存对话历史"""
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(self.messages, f, ensure_ascii=False, indent=2)
+    
+    def load_conversation(self, filename):
+        """加载对话历史"""
+        with open(filename, 'r', encoding='utf-8') as f:
+            self.messages = json.load(f)
+
+# 使用示例
+# assistant = SmartAssistant("Python 编程")
+# print(assistant.ask("列表和元组有什么区别？"))
+# print(assistant.ask("给我一个使用场景的例子"))
+```
+
+---
+
+## 流式输出
+
+### 为什么需要流式输出？
+
+```{mermaid}
+flowchart LR
+    subgraph "普通输出"
+        A1["发送请求"] --> A2["等待 5-10秒"]
+        A2 --> A3["一次性显示全部"]
+    end
+    
+    subgraph "流式输出"
+        B1["发送请求"] --> B2["立即开始显示"]
+        B2 --> B3["逐字出现"]
+    end
+```
+
+### 使用 OpenAI 库实现流式输出
+
+```{python}
+#| eval: false
+from openai import OpenAI
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+client = OpenAI(
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
+    base_url="https://api.deepseek.com"
+)
+
+def chat_stream(message, system_prompt="你是一个助手"):
+    """流式对话"""
+    stream = client.chat.completions.create(
+        model="deepseek-chat",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": message}
+        ],
+        stream=True  # 启用流式输出
+    )
+    
+    # 逐块输出
+    for chunk in stream:
+        if chunk.choices[0].delta.content:
+            print(chunk.choices[0].delta.content, end="", flush=True)
+    
+    print()  # 换行
+
+# 使用示例
+# chat_stream("给我讲个笑话")
+```
+
+### 收集完整响应
+
+```{python}
+#| eval: false
+def chat_stream_with_result(message):
+    """流式输出并返回完整结果"""
+    stream = client.chat.completions.create(
+        model="deepseek-chat",
+        messages=[{"role": "user", "content": message}],
+        stream=True
+    )
+    
+    full_response = ""
+    for chunk in stream:
+        content = chunk.choices[0].delta.content or ""
+        print(content, end="", flush=True)
+        full_response += content
+    
+    print()
+    return full_response
+
+# 使用示例
+# result = chat_stream_with_result("用三句话介绍 Python")
+# print(f"\n完整响应长度：{len(result)} 字符")
+```
+
+---
+
+## 课后作业
+
+### 作业 5 继续：期末综合项目
+
+**本周任务**：实现 AI 功能模块
+
+如果你的项目包含 LLM：
+1. 使用 OpenAI 库调用 DeepSeek API
+2. 设计 System Prompt
+3. 实现多轮对话
+4. 考虑是否需要流式输出
+
+**REPORT.md 记录**：
+- 你设计的 System Prompt 是什么？
+- 经过几次迭代优化？
+- AI 的回答质量如何评估？
+
+---
+
+## 本章小结
+
+- **多轮对话**：通过 messages 列表维护对话历史
+- **OpenAI 库**：简洁、类型安全、易于切换模型
+- **System Prompt**：定义角色、任务边界、输出格式
+- **Prompt Engineering**：Few-shot、思维链、结构化输出
+- **流式输出**：`stream=True` 改善用户体验
+
+```{mermaid}
+flowchart LR
+    A["LLM 应用开发"] --> B["对话管理"]
+    A --> C["Prompt 设计"]
+    A --> D["输出优化"]
+    
+    B --> B1["多轮对话"]
+    B --> B2["历史管理"]
+    
+    C --> C1["System Prompt"]
+    C --> C2["Few-shot"]
+    C --> C3["CoT"]
+    
+    D --> D1["流式输出"]
+    D --> D2["JSON 输出"]
+```
+
+下一章，我们将学习 **Web 应用开发**——用 Streamlit 快速构建界面。

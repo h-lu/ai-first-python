@@ -1,0 +1,25 @@
+assignment_id: course-design
+title: "课程设计：AI 应用开发"
+description: "基于 DeepSeek API + Streamlit 的 AI 应用课程设计，自动化评分覆盖 80 分（除展示表现与学习态度）。"
+total_score: 80
+grading:
+  enable_llm: true
+  enable_tests: false   # 仍然以 manifest 声明的命令为准
+  enable_manifest: true
+  groups:
+    functionality:
+      description: "功能完成度：核心流程、LLM 集成、错误处理"
+      weight: 0.3125
+      max_score: 25
+    creativity:
+      description: "创意与体验：界面美观、交互顺滑、解决真实痛点"
+      weight: 0.25
+      max_score: 20
+    technical:
+      description: "技术实现：代码结构、可读性、安全与最佳实践"
+      weight: 0.25
+      max_score: 20
+    reflection:
+      description: "开发心得：对 AI 协作与个人成长的反思（>500 字）"
+      weight: 0.1875
+      max_score: 15

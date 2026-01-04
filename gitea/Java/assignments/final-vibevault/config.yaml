@@ -1,0 +1,25 @@
+assignment_id: final-vibevault
+title: "Final Project: VibeVault End-to-End System"
+description: "Build, test and document a production-style VibeVault backend using Spring Boot, PostgreSQL, testing, and security."
+due_date: "2026-01-15 23:59:59"
+total_score: 100
+grading:
+  enable_llm: true
+  enable_tests: true
+  # 下面的 groups 字段目前仅作为权重设计文档，具体实现仍由 .autograde/grade.py 统一处理
+  groups:
+    core:
+      description: "Core functionality (CRUD, REST API, basic JPA mapping)"
+      weight: 0.6    # ≈ 60 分
+    advanced:
+      description: "Advanced features (transactions, derived queries, error handling)"
+      weight: 0.1    # ≈ 10 分
+    challenge:
+      description: "Challenge features (security/ownership, JWT or equivalent)"
+      weight: 0.1    # ≈ 10 分
+    docs:
+      description: "Written report graded by LLM"
+      weight: 0.2    # ≈ 20 分
+
+
+

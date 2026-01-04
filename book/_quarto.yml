@@ -1,0 +1,81 @@
+project:
+  type: book
+  output-dir: _book
+
+book:
+  title: "Python程序设计：AI时代的Vibe Coding"
+  subtitle: "32课时实践教程"
+  author: "陆海波 上海应用技术大学 经济与管理学院"
+  date: "2025-2026学年"
+  
+  chapters:
+    - index.qmd
+    - preface.qmd
+    
+    - part: "第一阶段：环境搭建与计算思维"
+      chapters:
+        - chapters/01-intro.qmd
+        - chapters/02-thinking.qmd
+        - chapters/03-debugging.qmd
+    
+    - part: "第二阶段：人机协同编程基础"
+      chapters:
+        - chapters/04-functions.qmd
+        - chapters/05-data-structures.qmd
+        - chapters/06-files.qmd
+        - chapters/07-errors.qmd
+    
+    - part: "第三阶段：数据处理与可视化实战"
+      chapters:
+        - chapters/08-data-tools.qmd
+        - chapters/09-data-cleaning.qmd
+        - chapters/10-visualization.qmd
+    
+    - part: "第四阶段：AI应用与综合项目"
+      chapters:
+        - chapters/11-api.qmd
+        - chapters/12-llm-basics.qmd
+        - chapters/13-web-apps.qmd
+        - chapters/14-project-dev.qmd
+        - chapters/15-project-review.qmd
+        - chapters/16-summary.qmd
+    
+    - part: "附录"
+      chapters:
+        - appendix/assignments.qmd
+        - appendix/grading.qmd
+        - references.qmd
+
+format:
+  html:
+    theme:
+      light: [cosmo, theme.scss]
+      dark: [darkly, theme.scss]
+    code-fold: false
+    code-tools: true
+    code-copy: true
+    toc: false
+    toc-depth: 3
+    number-sections: true
+    number-depth: 2
+    highlight-style:
+      light: github
+      dark: dracula
+    smooth-scroll: true
+    mermaid:
+      theme: neutral
+      mermaid-format: svg
+    
+  pdf:
+    documentclass: scrreprt
+    papersize: a4
+    toc: true
+    number-sections: true
+    colorlinks: true
+    
+execute:
+  freeze: auto
+  
+lang: zh
+
+bibliography: references.bib

@@ -1,0 +1,18 @@
+assignment_id: assignment-01-infocard
+title: "作业 1：个人信息卡生成器"
+description: "生成带边框的个人信息卡，覆盖 core/edge 测试并提交反思报告。"
+due_date: "2025-03-22 23:59:59 +08:00"
+total_score: 15
+grading:
+  enable_llm: true
+  enable_tests: true
+  groups:
+    core:
+      description: "基础格式化、中文姓名、邮箱校验、手机号标准化"
+      weight: 0.5333   # 约 8/15
+    edge:
+      description: "空字段、超长姓名、特殊字符、多手机号等边界处理"
+      weight: 0.2667   # 约 4/15
+    report:
+      description: "REPORT.md 反思报告"
+      weight: 0.20     # 3/15
